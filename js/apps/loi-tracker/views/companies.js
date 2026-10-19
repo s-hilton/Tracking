@@ -2,7 +2,7 @@
 import { h } from '../../../ui.js';
 import {
   PRODUCTS, STAGES, LOI_STATUSES, ACTIVITY_TYPES, DIRECTIONS, OUTCOMES, COMPANY_TYPES, LEAD_SOURCES, CONTACT_ROLES,
-  CONTACT_STATUSES, VALUE_BASIS, STALE_DAYS, STRONG_FIT_SCORE, PRIORITIES, COMPANY_USE_CASE_PRODUCTS,
+  CONTACT_STATUSES, VALUE_BASIS, STALE_DAYS, STRONG_FIT_SCORE, PRIORITIES,
 } from '../config.js';
 import {
   companies, related, lastTouch, hasSignedLoi, contactName, opportunities, contacts, isActiveSigned, todayIso,
@@ -38,8 +38,8 @@ export function companyList(ctx) {
     const staleCutoff = Date.now() - STALE_DAYS * 86400000;
     const rows = companies.all()
       .map((c) => ({ c, r: related(c.id), last: lastTouch(c.id) }))
-      .filter(({ c, r }) => product === 'all' || r.opportunities.some((o) => o.product === product) || c.useCases?.[product]?.length)
-      .filter(({ c, r }) => matches(state.companyQuery, c.name, c.aliases, c.tags, c.industry, c.country, ...companyUseCases(c).map(([, label]) => label),
+      .filter(({ c, r }) => product === 'all' || r.opportunities.some((o) => o.product === product) || companyUseCases(c).includes(product))
+      .filter(({ c, r }) => matches(state.companyQuery, c.name, c.aliases, c.tags, c.industry, c.country, ...companyUseCases(c).map((k) => PRODUCTS[k].label),
         ...[...r.contacts, ...r.formerContacts].flatMap((x) => [contactName(x), ...contactMethods(x).map((m) => m.value)])))
       .filter(({ c, r, last }) => ({
         all: true,
@@ -54,7 +54,7 @@ export function companyList(ctx) {
       .sort((a, b) => a.c.name.localeCompare(b.c.name));
 
     list.replaceChildren(...(rows.length ? rows.map(({ c, r, last }) => {
-      const productsHere = [...new Set([...r.opportunities.map((o) => o.product), ...companyUseCases(c).map(([p]) => p)])];
+      const productsHere = [...new Set([...r.opportunities.map((o) => o.product), ...companyUseCases(c)])];
       const nextTask = r.tasks.filter((t) => t.status !== 'completed' && t.status !== 'cancelled' && t.dueOn).sort((a, b) => a.dueOn.localeCompare(b.dueOn))[0];
       const signed = r.lois.filter(isActiveSigned).length;
       const stale = !c.doNotContact && !hasSignedLoi(c.id) && last < staleCutoff;
@@ -192,10 +192,8 @@ export function companyPage(ctx) {
 
   const tagged = companyUseCases(company);
   const useCaseSection = section('Use cases', add('Edit', () => editCompany(host, company)),
-    tagged.length ? h('ul', { class: 'bd-rows' }, ...COMPANY_USE_CASE_PRODUCTS.flatMap((key) => {
-      const labels = tagged.filter(([p]) => p === key).map(([, label]) => label);
-      return labels.length ? [h('li', { class: 'bd-row bd-usecases' }, productChip(key), h('span', {}, labels.join(' · ')))] : [];
-    })) : empty(`No ${COMPANY_USE_CASE_PRODUCTS.map((k) => PRODUCTS[k].short.toLowerCase()).join(' or ')} use cases tagged yet.`));
+    tagged.length ? h('ul', { class: 'bd-rows' }, ...tagged.map((key) => h('li', { class: 'bd-row bd-usecases' }, productChip(key), h('span', {}, PRODUCTS[key].label))))
+      : empty('No products tagged yet.'));
 
   const notes = company.notes ? section('Notes', null, h('p', { class: 'bd-notes' }, company.notes)) : null;
 

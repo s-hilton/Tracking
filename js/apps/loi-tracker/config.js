@@ -106,10 +106,6 @@ export const PRODUCTS = {
   },
 };
 
-// Products whose use cases can be tagged on a company itself (Company → Edit →
-// Use cases), before or alongside any opportunity.
-export const COMPANY_USE_CASE_PRODUCTS = ['software', 'capture'];
-
 // Opportunity pipeline stages, in order. `group` drives open/paused/closed reporting.
 export const STAGES = {
   identified: { label: 'Identified', group: 'open' },

@@ -111,7 +111,7 @@
 .bd-company-actions { display: flex; gap: 8px; }
 .bd-company-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; align-items: start; }
 .bd-company-grid > div { display: grid; gap: 16px; }
-.bd-usecases { align-items: flex-start; padding: 8px 10px; font-size: 13px; }
+.bd-usecases { padding: 8px 10px; font-size: 13px; }
 
 /* Timeline */
 .bd-timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }

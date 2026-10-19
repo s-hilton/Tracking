@@ -6,11 +6,11 @@ import { openForm } from './form.js';
 import {
   PRODUCTS, STAGES, LOI_STATUSES, VALUE_BASIS, ACTIVITY_TYPES, DIRECTIONS, OUTCOMES, FOLLOW_UP_DEFAULTS,
   COMPANY_TYPES, LEAD_SOURCES, CONTACT_ROLES, CONTACT_STATUSES, PRIORITIES, TASK_STATUSES, USE_CASE_SOURCES, CURRENCY,
-  SCORE_DIMENSIONS, QUALIFICATION_FACTS, CONTACT_METHOD_TYPES, COMPANY_USE_CASE_PRODUCTS,
+  SCORE_DIMENSIONS, QUALIFICATION_FACTS, CONTACT_METHOD_TYPES,
 } from './config.js';
 import {
   companies, contacts, opportunities, activities, tasks, lois, saveRecord, deleteCompany, contactName, companyName, addDays,
-  unallocated, contactMethods, contactAffiliations, isCurrentAt, wasAt, leadScore, todayIso,
+  unallocated, contactMethods, contactAffiliations, isCurrentAt, wasAt, leadScore, todayIso, companyUseCases,
 } from './data.js';
 
 const labels = (obj) => Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, typeof v === 'string' ? v : v.label]));
@@ -35,7 +35,7 @@ const companyField = (fixed) => (fixed ? [] : [{ key: 'companyId', label: 'Compa
 export function editCompany(host, company, { onSaved, onDeleted } = {}) {
   openForm(host, {
     title: company ? `Edit ${company.name}` : 'New company',
-    values: company ?? { type: '', leadSource: '', useCases: {} },
+    values: company ?? { type: '', leadSource: '', useCases: [] },
     submitLabel: company ? 'Save' : 'Add company',
     fields: [
       { key: 'name', label: 'Name', required: true, wide: true },
@@ -52,7 +52,7 @@ export function editCompany(host, company, { onSaved, onDeleted } = {}) {
       { key: 'introducedBy', label: 'Introduced by' },
       { key: 'tags', label: 'Tags', placeholder: 'comma, separated', wide: true },
       { type: 'heading', label: 'Use cases' },
-      ...COMPANY_USE_CASE_PRODUCTS.map((key) => ({ key: `useCases.${key}`, label: PRODUCTS[key].label, type: 'multi', options: PRODUCTS[key].useCases, wide: true })),
+      { key: 'useCases', label: 'Products this company could use', type: 'multi', options: productOptions, wide: true },
       { type: 'heading', label: 'Notes' },
       { key: 'notes', label: 'Notes', type: 'textarea', wide: true },
       { key: 'doNotContact', label: 'Do not contact (excluded from follow-up reminders)', type: 'checkbox', wide: true },
@@ -188,17 +188,16 @@ export function editOpportunity(host, opp, { companyId, product } = {}) {
     ...p.fields.map((f) => ({ ...f, key: `details.${f.key}`, show: (v) => v.product === key })),
   ]);
   const useCaseOptions = (v) => PRODUCTS[v.product]?.useCases ?? {};
-  // A new opportunity starts with the use cases already tagged on its company for that product.
-  const companyTags = (v) => [...(companies.get(v.companyId)?.useCases?.[v.product] ?? [])];
-  const initialProduct = product && product !== 'all' ? product : 'comms';
+  // A new opportunity defaults to the product filter, else the company's first tagged product.
+  const initialProduct = product && product !== 'all' ? product : companyUseCases(companies.get(companyId))[0] ?? 'comms';
 
   openForm(host, {
     title: opp ? `Edit opportunity` : 'New opportunity',
-    values: opp ?? { companyId, product: initialProduct, stage: 'identified', priority: 'normal', useCases: companyTags({ companyId, product: initialProduct }), contactIds: [], details: {}, scores: {}, qualification: {}, valueBasis: 'total', useCaseSource: '' },
+    values: opp ?? { companyId, product: initialProduct, stage: 'identified', priority: 'normal', useCases: [], contactIds: [], details: {}, scores: {}, qualification: {}, valueBasis: 'total', useCaseSource: '' },
     submitLabel: opp ? 'Save' : 'Add opportunity',
     fields: [
       ...companyField(companyId || opp),
-      { key: 'product', label: 'Product', type: 'select', options: productOptions, refresh: true, wide: true, onChange: (v) => { if (!opp) v.useCases = companyTags(v); } },
+      { key: 'product', label: 'Product', type: 'select', options: productOptions, refresh: true, wide: true },
       { key: 'name', label: 'Opportunity name', placeholder: 'e.g. Lunar relay 2028 mission', wide: true },
       { key: 'stage', label: 'Stage', type: 'select', options: labels(STAGES), refresh: true },
       { key: 'priority', label: 'Priority', type: 'select', options: PRIORITIES },
