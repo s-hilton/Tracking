@@ -30,16 +30,16 @@ npx http-server -c-1 .     # or: python3 -m http.server 8080
 
 Then open <http://localhost:8080>. To try it on your phone, open `http://<your-computer-ip>:8080` while both are on the same Wi-Fi. Offline mode and installing need HTTPS, so you'll want a deployed copy for those.
 
-## Put it online (GitHub Pages)
+## Where it's hosted
 
-1. On GitHub: **Settings → Pages → Build and deployment → Deploy from a branch**, then choose your branch and `/ (root)`.
-2. Open the URL GitHub gives you on your phone or computer.
-3. Install it:
-   - iPhone/iPad (Safari): Share → Add to Home Screen
-   - Android (Chrome): menu → Install app
-   - Computer (Chrome/Edge): install icon in the address bar, or Settings → Install inside the dashboard
+Live at **<https://stephendashboard.vercel.app>**. It's hosted on Vercel, which redeploys automatically whenever `main` changes on GitHub, and needs no build step.
 
-Any static host (Netlify, Vercel, Cloudflare Pages) works too.
+Install it from there:
+- iPhone/iPad (Safari): Share → Add to Home Screen
+- Android (Chrome): menu → Install app
+- Computer (Chrome/Edge): install icon in the address bar, or Settings → Install inside the dashboard
+
+Any static host works too (Netlify, Cloudflare Pages, GitHub Pages). If you move it, update `supabase/auth.json` so sign-in emails link to the new address.
 
 When you deploy changes, bump `VERSION` in `sw.js` so installed copies pick up the new files.
 

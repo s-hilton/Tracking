@@ -65,21 +65,17 @@ It's safe for this key to be public: it can only do what the database security r
 
 The dashboard signs in with **email + password**. The same sign-in is shared by every app.
 
-1. In Supabase, go to **Authentication → URL Configuration**.
-   - **Site URL:** your dashboard's address, e.g. `https://<your-github-name>.github.io/Tracking/`
-   - **Redirect URLs:** add the same address, plus `http://localhost:8080/**` if you also run it locally.
-   These are where the "confirm your email" and "reset password" links send you back to.
+1. Sign-in emails (account confirmation, password reset) must link back to your dashboard's address. **This is managed from GitHub:** `supabase/auth.json` lists the address (currently `https://stephendashboard.vercel.app`), and the **Supabase auth URLs** Action copies it into Supabase's *Authentication → URL Configuration* whenever that file changes on `main`. If the address ever changes, edit that file and you're done.
 2. Check that **Authentication → Sign In / Providers → Email** is enabled. It is by default.
 
 > Supabase's built-in email service only sends a few emails per hour. That's fine for personal use. For more, connect your own email provider under Authentication → Emails → SMTP Settings.
 
-## Step 6: Publish and create your account
+## Step 6: Create your account
 
-1. If you haven't already, publish the site: on GitHub go to **Settings → Pages**, choose *Deploy from a branch*, then `main` and `/ (root)`.
-2. Open the site and click **Sign in** in the top bar, then **Create an account**. Enter your email and a password.
-3. Click the confirmation link Supabase emails you, then sign in from the top bar.
-4. Sign in on your other devices. Everything you created before signing in is uploaded to your account automatically.
-5. **Optional (recommended for a personal dashboard):** stop strangers from creating accounts. In Supabase, go to **Authentication → Sign In / Providers** and turn off **Allow new users to sign up**. Existing accounts keep working.
+1. Open the site (<https://stephendashboard.vercel.app>) and click **Sign in** in the top bar, then **Create an account**. Enter your email and a password.
+2. Click the confirmation link Supabase emails you, then sign in from the top bar.
+3. Sign in on your other devices. Everything you created before signing in is uploaded to your account automatically.
+4. **Optional (recommended for a personal dashboard):** stop strangers from creating accounts. In Supabase, go to **Authentication → Sign In / Providers** and turn off **Allow new users to sign up**. Existing accounts keep working.
 
 ---
 

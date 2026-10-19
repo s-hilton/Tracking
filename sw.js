@@ -43,7 +43,7 @@ self.addEventListener('activate', (event) => {
 
 // Network first, so a normal reload always shows the latest published version;
 // the cache is only used when offline. `no-cache` makes the browser check with
-// the server instead of reusing GitHub Pages' 10-minute HTTP cache.
+// the server instead of reusing a stale copy from the browser's HTTP cache.
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
