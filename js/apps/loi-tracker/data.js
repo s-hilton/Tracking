@@ -159,9 +159,13 @@ export function addDays(days, businessOnly = false) {
 // ---- Relationships ---------------------------------------------------------------
 export const companyById = (id) => companies.get(id);
 export const companyName = (id) => companies.get(id)?.name || 'Unknown company';
-// A company's tagged use cases ({ product: [keys] }) as [product, label] pairs.
-export const companyUseCases = (c) => Object.entries(c?.useCases ?? {})
-  .flatMap(([product, keys]) => (keys ?? []).map((k) => [product, PRODUCTS[product]?.useCases[k] ?? k]));
+// The products a company is tagged with as its use cases (Company → Edit → Use cases).
+// Early records stored { product: [use-case keys] }; any product with keys counts.
+export function companyUseCases(c) {
+  const tags = c?.useCases;
+  const keys = Array.isArray(tags) ? tags : Object.keys(tags ?? {}).filter((k) => tags[k]?.length);
+  return keys.filter((k) => k in PRODUCTS);
+}
 export const contactName = (c) => [c.firstName, c.lastName].filter(Boolean).join(' ') || c.email || 'Unnamed contact';
 
 // ---- Contacts: several methods and a dated employment history ----------------------
