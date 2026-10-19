@@ -1,17 +1,23 @@
-// App registry. To add a built-in app, create a module that exports
-// { id, name, icon, color, size, mount(root, ctx) } and list it here.
-import notes from './notes.js';
-import tasks from './tasks.js';
-import calculator from './calculator.js';
-import clock from './clock.js';
-import settings from './settings.js';
-import { webApp } from './webapp.js';
-import { getLinks } from '../links.js';
+// App registry: the only place that knows which apps exist.
+//
+// Each app lives in its own folder (js/apps/<name>/) with its own code and styles,
+// plus its own database migration in supabase/migrations/ if it stores data.
+// To remove an app: delete its import + entry below, its folder, and (optionally)
+// write a new migration that drops its table.
+//
+// An entry is either a single app { id, name, icon, color, size, mount(root, ctx) }
+// or a provider { apps() } that returns several (like Web apps, one per saved site).
+import notes from './notes/notes.js';
+import tasks from './tasks/tasks.js';
+import calculator from './calculator/calculator.js';
+import clock from './clock/clock.js';
+import webApps from './web-apps/web-apps.js';
+import settings from './settings/settings.js';
 
-const BUILT_IN = [notes, tasks, calculator, clock, settings];
+const APPS = [notes, tasks, calculator, clock, settings, webApps];
 
 export function getApps() {
-  return [...BUILT_IN, ...getLinks().map(webApp)];
+  return APPS.flatMap((entry) => (typeof entry.apps === 'function' ? entry.apps() : [entry]));
 }
 
 export function getApp(id) {

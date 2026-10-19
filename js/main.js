@@ -3,10 +3,12 @@ import { createWindowManager } from './wm.js';
 import { applyPrefs } from './prefs.js';
 import { load, save } from './storage.js';
 import { registerPWA } from './pwa.js';
+import { initCloud } from './cloud.js';
 import { h, appIcon } from './ui.js';
 
 applyPrefs();
 registerPWA();
+initCloud();
 
 const $ = (selector) => document.querySelector(selector);
 const mobileQuery = window.matchMedia('(max-width: 768px)');

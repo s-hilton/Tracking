@@ -1,4 +1,7 @@
-import { h } from '../ui.js';
+// Calculator app. Self-contained: this folder only (no database table).
+import { h, loadStyles } from '../../ui.js';
+
+loadStyles(new URL('./calculator.css', import.meta.url));
 
 const KEYS = [
   ['C', 'fn'], ['±', 'fn'], ['%', 'fn'], ['÷', 'op'],

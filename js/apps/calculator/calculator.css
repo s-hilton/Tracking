@@ -1,0 +1,13 @@
+/* ---- App: calculator ---- */
+.calc { display: flex; flex-direction: column; padding: 12px; gap: 12px; outline: none; }
+.calc-screen { text-align: right; padding: 8px 6px 0; overflow: hidden; }
+.calc-expr { min-height: 20px; }
+.calc-display { font-size: 42px; font-weight: 300; font-variant-numeric: tabular-nums; overflow-x: auto; white-space: nowrap; }
+.calc-pad { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 1fr; gap: 8px; min-height: 0; }
+.calc-key { border: 0; border-radius: 12px; background: var(--surface-2); font-size: 20px; min-height: 44px; }
+.calc-key:hover { background: var(--surface-3); }
+.calc-key:active { filter: brightness(0.9); }
+.calc-key.fn { color: var(--accent); }
+.calc-key.op { background: color-mix(in srgb, var(--accent) 22%, var(--surface-2)); }
+.calc-key.eq { background: var(--accent); color: #fff; }
+.calc-key.wide { grid-column: span 2; }

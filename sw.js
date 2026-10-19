@@ -1,8 +1,10 @@
 // Offline support: serve the app shell from cache, refresh it in the background.
 // Bump VERSION when you deploy so old caches are cleaned up.
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = `webtop-${VERSION}`;
 
+// Core files are cached up front; app files (js/apps/**) are cached the
+// first time they load, so adding or removing an app needs no change here.
 const SHELL = [
   './',
   'index.html',
@@ -14,14 +16,10 @@ const SHELL = [
   'js/storage.js',
   'js/prefs.js',
   'js/pwa.js',
-  'js/links.js',
+  'js/config.js',
+  'js/cloud.js',
+  'js/settings-sections.js',
   'js/apps/index.js',
-  'js/apps/notes.js',
-  'js/apps/tasks.js',
-  'js/apps/calculator.js',
-  'js/apps/clock.js',
-  'js/apps/settings.js',
-  'js/apps/webapp.js',
   'icons/icon.svg',
   'icons/icon-192.png',
   'icons/icon-512.png',

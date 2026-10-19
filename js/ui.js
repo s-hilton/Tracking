@@ -13,6 +13,13 @@ export function h(tag, props, ...children) {
   return el;
 }
 
+// Each app loads its own stylesheet: loadStyles(new URL('./notes.css', import.meta.url))
+export function loadStyles(url) {
+  const href = String(url);
+  if ([...document.styleSheets].some((sheet) => sheet.href === href)) return;
+  document.head.append(h('link', { rel: 'stylesheet', href }));
+}
+
 export function appIcon(app, onOpen) {
   return h('button', { class: 'app-icon', title: app.name, onclick: () => onOpen(app.id) },
     h('span', { class: 'glyph', style: `--c:${app.color}` }, app.icon),

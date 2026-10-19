@@ -1,4 +1,7 @@
-import { h } from '../ui.js';
+// Clock app. Self-contained: this folder only (no database table).
+import { h, loadStyles } from '../../ui.js';
+
+loadStyles(new URL('./clock.css', import.meta.url));
 
 const pad = (n, len = 2) => String(n).padStart(len, '0');
 

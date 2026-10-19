@@ -1,0 +1,15 @@
+/* ---- App: settings ---- */
+.settings { padding: 8px 16px 20px; height: auto; }
+.set-section { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.set-section:last-child { border-bottom: 0; }
+.set-section h3 { margin: 0 0 10px; font-size: 15px; }
+.set-body { display: grid; gap: 10px; }
+.set-section p { margin: 0; }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.set-row .input { width: auto; }
+.set-label { font-weight: 600; font-size: 13px; color: var(--muted); }
+.swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+.swatch { border: 2px solid var(--border); padding: 0; }
+.swatch.wall { width: 56px; height: 38px; border-radius: 9px; background-size: cover !important; }
+.swatch.dot { width: 28px; height: 28px; border-radius: 50%; }
+.swatch.on { border-color: var(--text); box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }

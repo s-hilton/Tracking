@@ -18,7 +18,7 @@ A personal dashboard that works like a desktop: tap an icon and the app opens in
 
 **Web apps:** in Settings → Web apps you can add any website as its own icon, and it opens inside a window. Some sites (Google, Facebook, banks, …) refuse to be shown inside other pages. For those, use the **Open in tab** button in the window's toolbar.
 
-All data stays in the browser's local storage on that device.
+Data is stored in the browser on each device. Connect **Supabase** to sign in and sync across devices, with the database managed from this GitHub repo. See **[docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md)** for the step-by-step guide.
 
 ## Run it locally
 
@@ -45,44 +45,79 @@ When you deploy changes, bump `VERSION` in `sw.js` so installed copies pick up t
 
 ## Project layout
 
+Every app is self-contained so it can be split off later: **one folder of code + styles, and (if it stores data) one migration file**.
+
 ```
-index.html              page shell (desktop, taskbar, launcher, switcher)
-manifest.webmanifest    PWA metadata (name, icons, colours)
-sw.js                   service worker (offline cache)
-css/styles.css          all styles; theme tokens at the top
-js/main.js              wires up icons, taskbar, launcher, switcher, session restore
-js/wm.js                window manager (open/focus/drag/resize/min/max/close)
-js/apps/index.js        app registry
-js/apps/*.js            one file per app
-js/links.js             saved website links (web apps)
-js/prefs.js             theme / wallpaper / accent settings
-js/storage.js           localStorage helpers
-js/ui.js                tiny DOM helper
-icons/                  app icons
+index.html                    page shell (desktop, taskbar, launcher, switcher)
+manifest.webmanifest          PWA metadata (name, icons, colours)
+sw.js                         service worker (offline cache)
+css/styles.css                shell styles + shared buttons/inputs; theme tokens at the top
+js/main.js                    wires up icons, taskbar, launcher, switcher, session restore
+js/wm.js                      window manager (open/focus/drag/resize/min/max/close)
+js/config.js                  Supabase URL + publishable key (empty = local-only)
+js/cloud.js                   Supabase sign-in + offline-first synced collections
+js/settings-sections.js       lets apps add their own section to Settings
+js/prefs.js, storage.js, ui.js, pwa.js   small shared helpers
+
+js/apps/index.js              app registry: the one list of installed apps
+js/apps/notes/                notes.js, notes.css        ⇄ supabase/migrations/*_notes.sql
+js/apps/tasks/                tasks.js, tasks.css        ⇄ supabase/migrations/*_tasks.sql
+js/apps/web-apps/             web-apps.js, web-apps.css  ⇄ supabase/migrations/*_web_apps.sql
+js/apps/calculator/           calculator.js, calculator.css   (no data)
+js/apps/clock/                clock.js, clock.css             (no data)
+js/apps/settings/             settings.js, settings.css
+
+supabase/migrations/          database tables, applied by GitHub Actions
+.github/workflows/supabase.yml   the Action that applies them
 ```
+
+Apps only depend on the shared helpers in `js/` (never on each other).
 
 ## Adding your own app
 
-Create `js/apps/myapp.js`:
+1. Create a folder `js/apps/habits/` with `habits.js` and `habits.css`:
 
 ```js
-import { h } from '../ui.js';
+// js/apps/habits/habits.js
+import { h, loadStyles } from '../../ui.js';
+import { createCollection } from '../../cloud.js';
+import { uid } from '../../storage.js';
+
+loadStyles(new URL('./habits.css', import.meta.url));
+
+// Optional: data that syncs to Supabase (table defined in step 3).
+const store = createCollection({
+  table: 'habits',
+  key: 'habits',
+  toRow: (x) => ({ id: x.id, name: x.name }),
+  fromRow: (r) => ({ id: r.id, name: r.name }),
+  order: { column: 'id', ascending: true },
+});
 
 export default {
-  id: 'myapp',
-  name: 'My App',
-  icon: '🚀',            // any emoji
-  color: '#8b5cf6',      // icon background
+  id: 'habits',
+  name: 'Habits',
+  icon: '🔥',            // any emoji
+  color: '#f97316',      // icon background
   size: { w: 500, h: 400 },
 
-  // root is the window's content area. Return a function to clean up (timers etc.) on close.
+  // root is the window's content area. Return a function to clean up on close.
   mount(root, ctx) {
-    root.append(h('div', { class: 'app', style: 'padding:16px' }, 'Hello!'));
+    const render = () => root.replaceChildren(h('div', { class: 'app habits' },
+      ...store.all().map((x) => h('p', {}, x.name)),
+      h('button', { class: 'btn primary', onclick: () => { store.upsert({ id: uid(), name: 'New habit' }); render(); } }, 'Add')));
+    render();
+    return store.subscribe(render); // re-render when data arrives from another device
   },
 };
 ```
 
-Then import it and add it to `BUILT_IN` in `js/apps/index.js`. If you want it to work offline, also add the file to `SHELL` in `sw.js`. `ctx` gives you `ctx.open(appId)`, `ctx.close()` and `ctx.setTitle(text)`.
+2. Import it and add it to `APPS` in `js/apps/index.js`.
+3. If it stores data, add `supabase/migrations/<timestamp>_habits.sql` (copy `…_tasks.sql` and change the columns), then merge to `main` and GitHub creates the table.
+
+`ctx` gives you `ctx.open(appId)`, `ctx.close()` and `ctx.setTitle(text)`. Store methods are `all()`, `get(id)`, `upsert(item)`, `remove(id)` and `subscribe(fn)`.
+
+**Removing / splitting off an app:** delete its line in `js/apps/index.js` and its folder. If it had a table, add a migration that drops it, or keep the migration file with the app if you're moving it to its own project.
 
 ## Turning it into a store app later
 

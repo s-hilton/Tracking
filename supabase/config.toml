@@ -1,0 +1,3 @@
+# Supabase CLI settings. The GitHub Action links this folder to your hosted
+# project (using the SUPABASE_PROJECT_ID secret) and applies supabase/migrations.
+project_id = "webtop"
