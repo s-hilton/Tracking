@@ -9,7 +9,7 @@ import {
   CURRENCY,
 } from './config.js';
 import {
-  companies, contacts, opportunities, lois, related, contactName, contactMethods, contactAffiliations, companyName,
+  companies, contacts, opportunities, lois, related, contactName, companyUseCases, contactMethods, contactAffiliations, companyName,
   staleCompanies, overdueTasks, openTasks, loiTotals, loiProducts, unallocated, leadScore, stageGroup, isActiveSigned,
   todayIso, parseIso,
 } from './data.js';
@@ -154,6 +154,7 @@ function companyDirectory() {
           ['Location', [c.headquarters, c.country].filter(Boolean).join(', ')],
           ['Website', website ? link(website, c.website) : ''], ['Email', c.email], ['Phone', c.phone],
           ['Lead source', c.leadSource ? LEAD_SOURCES[c.leadSource] : ''], ['Introduced by', c.introducedBy],
+          ['Use cases', companyUseCases(c).map(([product, label]) => `${PRODUCTS[product]?.short ?? product}: ${label}`).join('; ')],
           ['Aliases', c.aliases], ['Tags', c.tags], ['Notes', c.notes],
         ]),
         h('h4', {}, 'Contacts'),
