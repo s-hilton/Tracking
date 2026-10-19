@@ -2,7 +2,7 @@
 // derived numbers (last touch, follow-up reminders, LOI totals).
 import { createCollection } from '../../cloud.js';
 import { load, remove, uid } from '../../storage.js';
-import { STALE_DAYS, PROPOSED_LOI_STATUSES, STAGES } from './config.js';
+import { STALE_DAYS, PROPOSED_LOI_STATUSES, STAGES, SCORE_DIMENSIONS } from './config.js';
 
 // How each JS value is written to / read from its column.
 const KINDS = {
@@ -59,6 +59,8 @@ export const contacts = define('bd_contacts', 'ar:contacts', {
   preferredChannel: ['preferred_channel', 'text'],
   timezone: ['timezone', 'text'],
   introducedBy: ['introduced_by', 'text'],
+  methods: ['methods', 'json'],
+  affiliations: ['affiliations', 'json'],
   notes: ['notes', 'text'],
 });
 
@@ -83,6 +85,9 @@ export const opportunities = define('bd_opportunities', 'ar:opportunities', {
   risks: ['risks', 'text'],
   lossReason: ['loss_reason', 'text'],
   details: ['details', 'json'],
+  scores: ['scores', 'json'],
+  qualification: ['qualification', 'json'],
+  blockingCapabilities: ['blocking_capabilities', 'text'],
   notes: ['notes', 'text'],
 });
 
@@ -155,10 +160,30 @@ export const companyById = (id) => companies.get(id);
 export const companyName = (id) => companies.get(id)?.name || 'Unknown company';
 export const contactName = (c) => [c.firstName, c.lastName].filter(Boolean).join(' ') || c.email || 'Unnamed contact';
 
+// ---- Contacts: several methods and a dated employment history ----------------------
+// Contacts saved before these existed only have single email/phone/company fields;
+// these helpers read either shape.
+export function contactMethods(c) {
+  if (Array.isArray(c.methods) && c.methods.length) return c.methods;
+  return [['email', c.email], ['phone', c.phone], ['linkedin', c.linkedin]]
+    .filter(([, value]) => value).map(([type, value]) => ({ type, value, label: '' }));
+}
+
+export function contactAffiliations(c) {
+  if (Array.isArray(c.affiliations) && c.affiliations.length) return c.affiliations;
+  return c.companyId ? [{ companyId: c.companyId, title: c.title ?? '', department: c.department ?? '', start: '', end: '', current: true }] : [];
+}
+
+export const primaryMethod = (c, type) => contactMethods(c).find((m) => m.type === type)?.value ?? '';
+export const isCurrentAt = (c, companyId) => contactAffiliations(c).some((a) => a.companyId === companyId && a.current);
+export const wasAt = (c, companyId) => contactAffiliations(c).some((a) => a.companyId === companyId && !a.current);
+export const currentAffiliation = (c) => contactAffiliations(c).find((a) => a.current);
+
 export function related(companyId) {
   const of = (store) => store.all().filter((x) => x.companyId === companyId);
   return {
-    contacts: of(contacts),
+    contacts: contacts.all().filter((c) => isCurrentAt(c, companyId)),
+    formerContacts: contacts.all().filter((c) => wasAt(c, companyId) && !isCurrentAt(c, companyId)),
     opportunities: of(opportunities),
     activities: of(activities).sort((a, b) => b.occurredAt - a.occurredAt),
     tasks: of(tasks),
@@ -168,7 +193,15 @@ export function related(companyId) {
 
 // Deleting a company removes everything attached to it.
 export function deleteCompany(companyId) {
-  for (const store of [contacts, opportunities, activities, tasks, lois]) {
+  // People who also worked elsewhere keep their record, minus this company.
+  for (const c of contacts.all()) {
+    const affiliations = contactAffiliations(c);
+    if (!affiliations.some((a) => a.companyId === companyId)) continue;
+    const others = affiliations.filter((a) => a.companyId !== companyId);
+    if (others.length) saveRecord(contacts, { ...c, affiliations: others, companyId: (others.find((a) => a.current) ?? others[0]).companyId });
+    else contacts.remove(c.id);
+  }
+  for (const store of [opportunities, activities, tasks, lois]) {
     store.all().filter((x) => x.companyId === companyId).forEach((x) => store.remove(x.id));
   }
   companies.remove(companyId);
@@ -256,6 +289,23 @@ export function loiTotals(product = 'all') {
 }
 
 export const stageGroup = (opp) => STAGES[opp.stage]?.group ?? 'open';
+
+// ---- Lead score (PRD §10) -------------------------------------------------------------
+// Weighted average of the known 1–5 scores, scaled to 0–100. Unknown dimensions are
+// left out (not counted as low); null when nothing has been scored.
+export function leadScore(opp) {
+  let weight = 0;
+  let total = 0;
+  let known = 0;
+  for (const [key, dim] of Object.entries(SCORE_DIMENSIONS)) {
+    const value = Number(opp.scores?.[key]);
+    if (!value) continue;
+    weight += dim.weight;
+    total += dim.weight * ((value - 1) / 4);
+    known += 1;
+  }
+  return { score: weight ? Math.round((total / weight) * 100) : null, known, of: Object.keys(SCORE_DIMENSIONS).length };
+}
 
 // ---- One-time carry-over from the first version of the app ------------------------
 // LOIs typed into the old single-list tracker that never reached the server are
