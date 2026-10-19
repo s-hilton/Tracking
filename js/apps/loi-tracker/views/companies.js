@@ -2,13 +2,13 @@
 import { h } from '../../../ui.js';
 import {
   PRODUCTS, STAGES, LOI_STATUSES, ACTIVITY_TYPES, DIRECTIONS, OUTCOMES, COMPANY_TYPES, LEAD_SOURCES, CONTACT_ROLES,
-  CONTACT_STATUSES, VALUE_BASIS, STALE_DAYS,
+  CONTACT_STATUSES, VALUE_BASIS, STALE_DAYS, PRIORITIES, COMPANY_USE_CASE_PRODUCTS,
 } from '../config.js';
 import {
-  companies, related, lastTouch, hasSignedLoi, contactName, opportunities, contacts, isActiveSigned, todayIso,
+  companies, related, lastTouch, hasSignedLoi, contactName, opportunities, contacts, isActiveSigned, todayIso, companyUseCases,
 } from '../data.js';
 import {
-  editCompany, editContact, editOpportunity, logActivity, editTask, editLoi, completeTask,
+  editCompany, editContact, editOpportunity, logActivity, editTask, editLoi, completeTask, reopenTask,
 } from '../editors.js';
 import {
   money, ago, pill, productChip, section, empty, button, searchBox, selectBox, matches, fmtDate, fmtDateTime, extLink,
@@ -35,8 +35,8 @@ export function companyList(ctx) {
     const staleCutoff = Date.now() - STALE_DAYS * 86400000;
     const rows = companies.all()
       .map((c) => ({ c, r: related(c.id), last: lastTouch(c.id) }))
-      .filter(({ r }) => product === 'all' || r.opportunities.some((o) => o.product === product))
-      .filter(({ c, r }) => matches(state.companyQuery, c.name, c.aliases, c.tags, c.industry, c.country, ...r.contacts.flatMap((x) => [contactName(x), x.email])))
+      .filter(({ c, r }) => product === 'all' || r.opportunities.some((o) => o.product === product) || c.useCases?.[product]?.length)
+      .filter(({ c, r }) => matches(state.companyQuery, c.name, c.aliases, c.tags, c.industry, c.country, ...companyUseCases(c).map(([, label]) => label), ...r.contacts.flatMap((x) => [contactName(x), x.email])))
       .filter(({ c, r, last }) => ({
         all: true,
         stale: !c.doNotContact && !hasSignedLoi(c.id) && last < staleCutoff,
@@ -48,7 +48,7 @@ export function companyList(ctx) {
       .sort((a, b) => a.c.name.localeCompare(b.c.name));
 
     list.replaceChildren(...(rows.length ? rows.map(({ c, r, last }) => {
-      const productsHere = [...new Set(r.opportunities.map((o) => o.product))];
+      const productsHere = [...new Set([...r.opportunities.map((o) => o.product), ...companyUseCases(c).map(([p]) => p)])];
       const nextTask = r.tasks.filter((t) => t.status !== 'completed' && t.status !== 'cancelled' && t.dueOn).sort((a, b) => a.dueOn.localeCompare(b.dueOn))[0];
       const signed = r.lois.filter(isActiveSigned).length;
       const stale = !c.doNotContact && !hasSignedLoi(c.id) && last < staleCutoff;
@@ -150,21 +150,39 @@ export function companyPage(ctx) {
         extLink(l.docUrl, 'Signed ↗'), extLink(l.draftUrl, 'Draft ↗'))))) : empty('No LOIs yet.'));
 
   const openTasks = r.tasks.filter((t) => t.status !== 'completed' && t.status !== 'cancelled').sort((a, b) => (a.dueOn || '9').localeCompare(b.dueOn || '9'));
+  const doneTasks = r.tasks.filter((t) => t.status === 'completed').sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0)).slice(0, 5);
+  const taskRow = (t) => {
+    const done = t.status === 'completed';
+    return h('li', { class: `bd-row${done ? ' faded' : ''}` },
+      h('input', { type: 'checkbox', checked: done, 'aria-label': `${done ? 'Reopen' : 'Complete'} ${t.title}`, onchange: () => (done ? reopenTask(t) : completeTask(t)) }),
+      h('button', { class: 'bd-row-main', onclick: () => editTask(host, t) },
+        h('strong', {}, t.title),
+        t.notes ? h('span', { class: 'muted small' }, t.notes) : null),
+      h('div', { class: 'bd-row-meta' },
+        !done && t.priority === 'high' ? pill(PRIORITIES.high, 'bad') : null,
+        done ? h('span', { class: 'muted small' }, 'Done')
+          : t.dueOn ? pill(fmtDate(t.dueOn), t.dueOn < todayIso() ? 'bad' : t.dueOn === todayIso() ? 'warn' : 'neutral') : null));
+  };
   const taskSection = section('Follow-ups', add('+ Follow-up', () => editTask(host, null, { companyId: company.id })),
-    openTasks.length ? h('ul', { class: 'bd-rows' }, ...openTasks.map((t) => h('li', { class: 'bd-row' },
-      h('input', { type: 'checkbox', 'aria-label': `Complete ${t.title}`, onchange: () => completeTask(t) }),
-      h('button', { class: 'bd-row-main', onclick: () => editTask(host, t) }, h('strong', {}, t.title)),
-      t.dueOn ? pill(fmtDate(t.dueOn), t.dueOn < todayIso() ? 'bad' : t.dueOn === todayIso() ? 'warn' : 'neutral') : null))) : empty('No open follow-ups.'));
+    openTasks.length ? h('ul', { class: 'bd-rows' }, ...openTasks.map(taskRow)) : empty('No open follow-ups.'),
+    doneTasks.length ? h('ul', { class: 'bd-rows' }, ...doneTasks.map(taskRow)) : null);
 
   const timeline = section('Activity timeline', add('+ Log activity', () => logActivity(host, null, { companyId: company.id })),
     r.activities.length ? h('ol', { class: 'bd-timeline' }, ...r.activities.map((a) => activityItem(host, a, false))) : empty('Nothing logged yet. Log your first outreach.'));
+
+  const tagged = companyUseCases(company);
+  const useCaseSection = section('Use cases', add('Edit', () => editCompany(host, company)),
+    tagged.length ? h('ul', { class: 'bd-rows' }, ...COMPANY_USE_CASE_PRODUCTS.flatMap((key) => {
+      const labels = tagged.filter(([p]) => p === key).map(([, label]) => label);
+      return labels.length ? [h('li', { class: 'bd-row bd-usecases' }, productChip(key), h('span', {}, labels.join(' · ')))] : [];
+    })) : empty(`No ${COMPANY_USE_CASE_PRODUCTS.map((k) => PRODUCTS[k].short.toLowerCase()).join(' or ')} use cases tagged yet.`));
 
   const notes = company.notes ? section('Notes', null, h('p', { class: 'bd-notes' }, company.notes)) : null;
 
   return h('div', { class: 'bd-view bd-company' }, header,
     h('div', { class: 'bd-company-grid' },
       h('div', {}, oppSection, loiSection, timeline),
-      h('div', {}, taskSection, contactsSection, notes)));
+      h('div', {}, taskSection, useCaseSection, contactsSection, notes)));
 }
 
 // One entry in an activity timeline (also used by the global Activity view).

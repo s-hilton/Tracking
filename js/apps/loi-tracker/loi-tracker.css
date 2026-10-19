@@ -111,6 +111,7 @@
 .bd-company-actions { display: flex; gap: 8px; }
 .bd-company-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; align-items: start; }
 .bd-company-grid > div { display: grid; gap: 16px; }
+.bd-usecases { align-items: flex-start; padding: 8px 10px; font-size: 13px; }
 
 /* Timeline */
 .bd-timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
@@ -145,6 +146,8 @@
 
 @container (max-width: 760px) {
   .bd-company-grid { grid-template-columns: 1fr; }
+  /* Stacked: follow-ups and contacts first, not below the whole timeline. */
+  .bd-company-grid > div:last-child { order: -1; }
   .bd-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bd-nav-right { width: 100%; justify-content: space-between; }
 }

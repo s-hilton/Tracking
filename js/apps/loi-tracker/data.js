@@ -2,7 +2,7 @@
 // derived numbers (last touch, follow-up reminders, LOI totals).
 import { createCollection } from '../../cloud.js';
 import { load, remove, uid } from '../../storage.js';
-import { STALE_DAYS, PROPOSED_LOI_STATUSES, STAGES } from './config.js';
+import { STALE_DAYS, PROPOSED_LOI_STATUSES, STAGES, PRODUCTS } from './config.js';
 
 // How each JS value is written to / read from its column.
 const KINDS = {
@@ -41,6 +41,7 @@ export const companies = define('bd_companies', 'ar:companies', {
   leadSource: ['lead_source', 'text'],
   introducedBy: ['introduced_by', 'text'],
   tags: ['tags', 'text'],
+  useCases: ['use_cases', 'json'],
   notes: ['notes', 'text'],
   doNotContact: ['do_not_contact', 'bool'],
 });
@@ -153,6 +154,9 @@ export function addDays(days, businessOnly = false) {
 // ---- Relationships ---------------------------------------------------------------
 export const companyById = (id) => companies.get(id);
 export const companyName = (id) => companies.get(id)?.name || 'Unknown company';
+// A company's tagged use cases ({ product: [keys] }) as [product, label] pairs.
+export const companyUseCases = (c) => Object.entries(c?.useCases ?? {})
+  .flatMap(([product, keys]) => (keys ?? []).map((k) => [product, PRODUCTS[product]?.useCases[k] ?? k]));
 export const contactName = (c) => [c.firstName, c.lastName].filter(Boolean).join(' ') || c.email || 'Unnamed contact';
 
 export function related(companyId) {
