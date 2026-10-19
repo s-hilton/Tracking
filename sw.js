@@ -1,6 +1,6 @@
 // Offline support: serve the app shell from cache, refresh it in the background.
 // Bump VERSION when you deploy so old caches are cleaned up.
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = `webtop-${VERSION}`;
 
 // Core files are cached up front; app files (js/apps/**) are cached the
