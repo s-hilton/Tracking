@@ -230,3 +230,23 @@
 .chart-tip-row { display: flex; align-items: center; gap: 6px; }
 .chart-tip-row strong { font-size: 14px; }
 .chart-key { width: 12px; height: 2px; border-radius: 1px; background: var(--key); }
+
+/* ---- Export menu ---- */
+.bd-menu { position: relative; }
+.bd-menu > summary { list-style: none; cursor: pointer; }
+.bd-menu > summary::-webkit-details-marker { display: none; }
+.bd-menu-list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 6;
+  display: grid;
+  min-width: 250px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.bd-menu-item { display: grid; gap: 1px; padding: 8px 10px; border: 0; border-radius: 7px; background: none; text-align: left; }
+.bd-menu-item:hover, .bd-menu-item:focus-visible { background: var(--surface-2); }

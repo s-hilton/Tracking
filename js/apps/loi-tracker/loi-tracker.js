@@ -21,6 +21,7 @@ import { activityLog } from './views/activity.js';
 import { followUps } from './views/followups.js';
 import { analytics } from './views/analytics.js';
 import * as data from './data.js';
+import { buildReport, printReport, reportFileName } from './report.js';
 
 loadStyles(new URL('./loi-tracker.css', import.meta.url));
 migrateLegacyLocalData();
@@ -54,6 +55,22 @@ function backup() {
     lois: data.lois.all(),
   };
   downloadFile(`astra-retrieval-backup-${todayIso()}.json`, JSON.stringify(content, null, 2), 'application/json');
+}
+
+// Export everything: a readable report (print/PDF or one HTML file) or a data backup.
+function exportMenu() {
+  const menu = h('details', { class: 'bd-menu' });
+  const item = (label, hint, run) => h('button', {
+    class: 'bd-menu-item',
+    onclick: () => { menu.open = false; run(); },
+  }, h('strong', {}, label), h('span', { class: 'muted small' }, hint));
+  menu.append(
+    h('summary', { class: 'btn ghost' }, 'Export ▾'),
+    h('div', { class: 'bd-menu-list' },
+      item('Print / Save as PDF', 'The whole tracker as one document', printReport),
+      item('Download report (.html)', 'Same document as a single file', () => downloadFile(reportFileName(), buildReport(), 'text/html')),
+      item('Data backup (.json)', 'Every record, for safekeeping', backup)));
+  return menu;
 }
 
 export default {
@@ -110,7 +127,7 @@ export default {
           h('div', { class: 'seg bd-products', role: 'group', 'aria-label': 'Product' },
             ...[['all', 'All products'], ...Object.entries(PRODUCTS).map(([k, p]) => [k, p.short])].map(([k, label]) =>
               h('button', { class: state.product === k ? 'on' : '', title: PRODUCTS[k]?.label ?? 'Combined view', onclick: () => { state.product = k; render(); } }, label))),
-          h('button', { class: 'btn ghost', title: 'Download everything as JSON', onclick: backup }, 'Backup')));
+          exportMenu()));
     }
 
     let pending = false;
