@@ -6,6 +6,7 @@
 //   data.js     synced Supabase tables + derived numbers (reminders, LOI totals)
 //   form.js     the shared add/edit form
 //   editors.js  add/edit screens for each record type
+//   excel.js, xlsx.js  the Excel export and a small .xlsx writer
 //   analytics.js  conversion, velocity and trend calculations (date-filtered)
 //   views/      one file per tab (charts.js: the small chart kit)
 import { h, loadStyles } from '../../ui.js';
@@ -22,6 +23,7 @@ import { followUps } from './views/followups.js';
 import { analytics } from './views/analytics.js';
 import * as data from './data.js';
 import { buildReport, printReport, reportFileName } from './report.js';
+import { downloadWorkbook } from './excel.js';
 
 loadStyles(new URL('./loi-tracker.css', import.meta.url));
 migrateLegacyLocalData();
@@ -57,7 +59,7 @@ function backup() {
   downloadFile(`astra-retrieval-backup-${todayIso()}.json`, JSON.stringify(content, null, 2), 'application/json');
 }
 
-// Export everything: a readable report (print/PDF or one HTML file) or a data backup.
+// Export everything: a readable report (print/PDF or one HTML file), an Excel workbook or a data backup.
 function exportMenu() {
   const menu = h('details', { class: 'bd-menu' });
   const item = (label, hint, run) => h('button', {
@@ -69,6 +71,7 @@ function exportMenu() {
     h('div', { class: 'bd-menu-list' },
       item('Print / Save as PDF', 'The whole tracker as one document', printReport),
       item('Download report (.html)', 'Same document as a single file', () => downloadFile(reportFileName(), buildReport(), 'text/html')),
+      item('Excel workbook (.xlsx)', 'Every record, one sheet per kind', downloadWorkbook),
       item('Data backup (.json)', 'Every record, for safekeeping', backup)));
   return menu;
 }

@@ -6,7 +6,7 @@ import {
 } from '../config.js';
 import {
   companies, related, lastTouch, hasSignedLoi, contactName, opportunities, contacts, isActiveSigned, todayIso,
-  contactMethods, contactAffiliations, currentAffiliation, leadScore, stageGroup, companyUseCases,
+  contactMethods, contactAffiliations, currentAffiliation, leadScore, stageGroup, companyUseCases, saveRecord,
 } from '../data.js';
 import { scorePill } from './analytics.js';
 import {
@@ -78,9 +78,52 @@ export function companyList(ctx) {
       searchBox(state.companyQuery, 'Search companies, contacts, tags…', (v) => { state.companyQuery = v; renderList(); }),
       selectBox(state.companyView, VIEWS, (v) => { state.companyView = v; renderList(); }, 'Saved view'),
       button('+ Company', () => editCompany(ctx.host, null, { onSaved: (c) => ctx.go('company', { companyId: c.id }) }), 'btn primary')),
+    quickAdd(ctx),
     list);
   renderList();
   return view;
+}
+
+// Type a name and press Enter to add a company; details can be filled in later.
+// With a product selected, the new company is tagged with it so it stays in view.
+// Saving redraws the tab, so the same box is reused (keeping its text and focus)
+// rather than rebuilt: names can be entered one after another without pausing.
+function quickAdd(ctx) {
+  const { state } = ctx;
+  state.quickAdd ??= quickAddBox(ctx);
+  const { el, input, note } = state.quickAdd;
+  input.placeholder = `Quick add${ctx.product === 'all' ? '' : ` (${PRODUCTS[ctx.product].short})`}: company name + Enter`;
+  // Moving the box into the redrawn tab drops its focus; give it back before the next keystroke.
+  if (document.activeElement === input) queueMicrotask(() => input.focus());
+  else note.replaceChildren(); // the confirmation only lasts while adding
+  return el;
+}
+
+function quickAddBox(ctx) {
+  const note = h('span', { class: 'muted small bd-quick-note', role: 'status' });
+  const input = h('input', {
+    class: 'input',
+    type: 'text',
+    'aria-label': 'Quick add company',
+    maxLength: 200,
+    autocomplete: 'off',
+    onkeydown: (e) => {
+      if (e.key !== 'Enter' || e.isComposing) return;
+      e.preventDefault();
+      const name = input.value.trim();
+      if (!name) return;
+      const existing = companies.all().find((c) => c.name.trim().toLowerCase() === name.toLowerCase());
+      if (existing) {
+        note.replaceChildren(`"${existing.name}" already exists. `,
+          h('button', { class: 'link-btn', onclick: () => ctx.go('company', { companyId: existing.id }) }, 'Open it'));
+        return;
+      }
+      input.value = '';
+      note.textContent = `Added "${name}". Open it any time to add details.`;
+      saveRecord(companies, { name, useCases: ctx.product === 'all' ? [] : [ctx.product] });
+    },
+  });
+  return { el: h('div', { class: 'bd-quick-add' }, input, note), input, note };
 }
 
 // ---- Company page -------------------------------------------------------------------
