@@ -218,10 +218,13 @@ export function createWindowManager({ layer, getApp, onChange }) {
     for (const win of wins.values()) { win.geom = clamp(win.geom); render(win); }
   }
 
-  // Close windows whose app was removed (e.g. a deleted web link).
-  function prune() {
-    for (const win of [...wins.values()]) if (!getApp(win.appId)) close(win.id);
+  // Close every window whose app matches test(app, appId).
+  function closeWhere(test) {
+    for (const win of [...wins.values()]) if (test(getApp(win.appId), win.appId)) close(win.id);
   }
+
+  // Close windows whose app was removed (e.g. a deleted web link).
+  const prune = () => closeWhere((app) => !app);
 
   function list() {
     const top = topmost();
@@ -242,5 +245,5 @@ export function createWindowManager({ layer, getApp, onChange }) {
     if (win && topmost() !== win) focus(win.id);
   }));
 
-  return { open, focus, close, minimize, toggle, minimizeAll, fit, prune, list, serialize };
+  return { open, focus, close, closeWhere, minimize, toggle, minimizeAll, fit, prune, list, serialize };
 }

@@ -5,18 +5,10 @@ import { getPrefs, setPrefs, WALLPAPERS, ACCENTS } from '../../prefs.js';
 import { clearAll, remove } from '../../storage.js';
 import { isStandalone, canPromptInstall, promptInstall } from '../../pwa.js';
 import { getSettingsSections } from '../../settings-sections.js';
-import {
-  isConfigured, currentUser, syncStatus, sendLoginEmail, verifyLoginCode, signOut,
-} from '../../cloud.js';
+import { isConfigured, currentUser, signOut } from '../../cloud.js';
+import { showSignIn, statusText } from '../../account.js';
 
 loadStyles(new URL('./settings.css', import.meta.url));
-
-const STATUS_TEXT = {
-  syncing: 'Syncing…',
-  synced: 'All changes saved to the cloud',
-  error: 'Sync problem',
-  'signed-out': 'Not signed in',
-};
 
 // A section whose body can be rebuilt in place when its data changes.
 function section(title, build) {
@@ -28,63 +20,26 @@ function section(title, build) {
 
 function account() {
   const status = h('p', { class: 'muted small' });
-  const showStatus = () => {
-    const { state, message } = syncStatus();
-    status.textContent = [STATUS_TEXT[state], message].filter(Boolean).join(': ');
-    status.classList.toggle('error', state === 'error');
-  };
+  const showStatus = () => { status.textContent = statusText(); };
 
   const sec = section('Account', () => {
     if (!isConfigured()) {
       return [h('p', { class: 'muted' },
         'Cloud sync is off, so data is saved on this device only. To sync between devices, connect Supabase (see docs/SUPABASE_SETUP.md).')];
     }
-
     const user = currentUser();
-    if (user) {
+    if (!user) {
       return [
-        h('p', {}, 'Signed in as ', h('strong', {}, user.email)),
-        status,
-        h('div', { class: 'row wrap' },
-          h('button', { class: 'btn', onclick: () => window.dispatchEvent(new Event('sync-now')) }, 'Sync now'),
-          h('button', { class: 'btn', onclick: () => signOut() }, 'Sign out')),
+        h('p', { class: 'muted' }, 'Sign in to save your notes, tasks and web apps to the cloud and sync them across devices.'),
+        h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => showSignIn() }, 'Sign in or create account')),
       ];
     }
-
-    const email = h('input', { class: 'input', type: 'email', placeholder: 'you@example.com', required: true, autocomplete: 'email' });
-    const code = h('input', { class: 'input', placeholder: '6-digit code', inputMode: 'numeric', autocomplete: 'one-time-code', maxLength: 10 });
-    const message = h('p', { class: 'small muted' });
-    const codeForm = h('form', {
-      class: 'row',
-      hidden: true,
-      onsubmit: async (event) => {
-        event.preventDefault();
-        try {
-          await verifyLoginCode(email.value.trim(), code.value.trim());
-        } catch (err) {
-          message.textContent = err.message;
-        }
-      },
-    }, code, h('button', { class: 'btn primary' }, 'Verify'));
-
-    const emailForm = h('form', {
-      class: 'row',
-      onsubmit: async (event) => {
-        event.preventDefault();
-        message.textContent = 'Sending…';
-        try {
-          await sendLoginEmail(email.value.trim());
-          message.textContent = 'Check your email: tap the link, or type the code from the email below.';
-          codeForm.hidden = false;
-        } catch (err) {
-          message.textContent = err.message;
-        }
-      },
-    }, email, h('button', { class: 'btn primary' }, 'Send'));
-
     return [
-      h('p', { class: 'muted' }, 'Sign in to save your notes, tasks and web apps to the cloud and sync them across devices.'),
-      emailForm, message, codeForm,
+      h('p', {}, 'Signed in as ', h('strong', {}, user.email)),
+      status,
+      h('div', { class: 'row wrap' },
+        h('button', { class: 'btn', onclick: () => window.dispatchEvent(new Event('sync-now')) }, 'Sync now'),
+        h('button', { class: 'btn', onclick: () => signOut() }, 'Sign out')),
     ];
   });
 

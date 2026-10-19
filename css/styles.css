@@ -14,6 +14,8 @@
   --danger: #ef4444;
   --radius: 12px;
   --taskbar-h: 52px;
+  --topbar-h: 36px;
+  --top: calc(var(--topbar-h) + var(--safe-top));
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-top: env(safe-area-inset-top, 0px);
   color-scheme: dark;
@@ -123,8 +125,75 @@ button { cursor: pointer; }
 /* ---- Desktop & icons --------------------------------------------------------- */
 #desktop {
   position: fixed;
-  inset: 0 0 calc(var(--taskbar-h) + var(--safe-bottom)) 0;
+  inset: var(--top) 0 calc(var(--taskbar-h) + var(--safe-bottom)) 0;
 }
+
+/* ---- Top bar (brand + account) ---------------------------------------------------- */
+#topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--top);
+  padding: var(--safe-top) 8px 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--glass);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border-bottom: 1px solid var(--border);
+  z-index: 10000;
+  font-size: 13px;
+}
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.account-area { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.top-email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
+.top-btn {
+  height: 26px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-2);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.top-btn:hover { background: var(--surface-3); }
+.top-btn.primary { background: var(--accent); border-color: transparent; color: #fff; }
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
+.sync-dot.syncing { background: #f59e0b; }
+.sync-dot.error { background: var(--danger); }
+
+/* ---- Sign-in dialog ------------------------------------------------------------------ */
+.auth-dialog {
+  width: min(380px, calc(100vw - 32px));
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+.auth-dialog::backdrop { background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(4px); }
+.auth-form { display: grid; gap: 10px; padding: 18px 20px 20px; }
+.auth-form p { margin: 0; }
+.auth-head { display: flex; align-items: center; justify-content: space-between; }
+.auth-head h2 { margin: 0; font-size: 18px; }
+.auth-links { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.link-btn { border: 0; background: none; padding: 0; color: var(--accent); font-size: 13px; }
+.link-btn:hover { text-decoration: underline; }
 
 #windows { position: absolute; inset: 0; pointer-events: none; }
 #windows > * { pointer-events: auto; }
@@ -375,8 +444,8 @@ body.dragging iframe { pointer-events: none; }
 
 .switcher {
   position: fixed;
-  inset: 0 0 calc(var(--taskbar-h) + var(--safe-bottom)) 0;
-  padding: calc(var(--safe-top) + 24px) 16px 16px;
+  inset: var(--top) 0 calc(var(--taskbar-h) + var(--safe-bottom)) 0;
+  padding: 24px 16px 16px;
   background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -411,7 +480,7 @@ body.mobile {
   --taskbar-h: 58px;
 }
 body.mobile #icons {
-  padding: calc(var(--safe-top) + 20px) 12px 12px;
+  padding: 20px 12px 12px;
   grid-auto-flow: row;
   grid-template-rows: none;
   grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
@@ -432,7 +501,9 @@ body.mobile .window.maximized {
   box-shadow: none;
 }
 body.mobile .window:not(.active) { display: none; }
-body.mobile .titlebar { padding-top: var(--safe-top); height: calc(44px + var(--safe-top)); }
+body.mobile .titlebar { height: 44px; }
+body.mobile { --topbar-h: 40px; --top: calc(var(--topbar-h) + var(--safe-top)); }
+body.mobile .top-email { display: none; }
 body.mobile .win-controls [data-act="max"],
 body.mobile .resize-handle { display: none; }
 
@@ -446,7 +517,7 @@ body.mobile .overlay-panel {
   left: 8px;
   right: 8px;
   width: auto;
-  max-height: calc(100dvh - var(--taskbar-h) - var(--safe-bottom) - var(--safe-top) - 24px);
+  max-height: calc(100dvh - var(--taskbar-h) - var(--safe-bottom) - var(--top) - 24px);
 }
 
 /* Shared by all apps: fill the window */

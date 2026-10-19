@@ -3,12 +3,14 @@ import { createWindowManager } from './wm.js';
 import { applyPrefs } from './prefs.js';
 import { load, save } from './storage.js';
 import { registerPWA } from './pwa.js';
-import { initCloud } from './cloud.js';
+import { initCloud, needsSignIn, whenAuthReady } from './cloud.js';
+import { initAccount, showSignIn } from './account.js';
 import { h, appIcon } from './ui.js';
 
 applyPrefs();
 registerPWA();
 initCloud();
+initAccount();
 
 const $ = (selector) => document.querySelector(selector);
 const mobileQuery = window.matchMedia('(max-width: 768px)');
@@ -22,9 +24,24 @@ const wm = createWindowManager({
   },
 });
 
-function openApp(appId) {
+// Apps with `requiresSignIn: true` ask for the dashboard sign-in first,
+// then open automatically once signed in.
+async function openApp(appId) {
   hideOverlays();
+  const app = getApp(appId);
+  if (app?.requiresSignIn) {
+    await whenAuthReady();
+    if (needsSignIn()) {
+      showSignIn({ reason: `Sign in to open ${app.name}.`, then: () => wm.open(appId) });
+      return;
+    }
+  }
   wm.open(appId);
+}
+
+// Signed out (or never signed in): close apps that need an account.
+function closeProtectedApps() {
+  if (needsSignIn()) wm.closeWhere((app) => app?.requiresSignIn);
 }
 
 // ---- Desktop / home screen icons -------------------------------------------
@@ -121,6 +138,7 @@ document.addEventListener('keydown', (event) => { if (event.key === 'Escape') hi
 
 mobileQuery.addEventListener('change', syncMode);
 window.addEventListener('resize', () => wm.fit());
+window.addEventListener('auth-changed', closeProtectedApps);
 window.addEventListener('apps-changed', () => {
   renderIcons();
   renderLauncher();
@@ -135,3 +153,4 @@ setInterval(tickClock, 10_000);
 // Restore the windows that were open last time.
 for (const saved of load('session', [])) wm.open(saved.appId, saved);
 renderTaskbar();
+whenAuthReady().then(closeProtectedApps);

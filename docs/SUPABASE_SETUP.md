@@ -63,27 +63,23 @@ It's safe for this key to be public: it can only do what the database security r
 
 ## Step 5: Set up sign-in
 
-The dashboard signs you in with an emailed link or code. There's no password to remember.
+The dashboard signs in with **email + password**. The same sign-in is shared by every app.
 
 1. In Supabase, go to **Authentication → URL Configuration**.
    - **Site URL:** your dashboard's address, e.g. `https://<your-github-name>.github.io/Tracking/`
    - **Redirect URLs:** add the same address, plus `http://localhost:8080/**` if you also run it locally.
-2. **Recommended for phones:** go to **Authentication → Emails → Magic Link** and add this line to the template:
-
-   ```html
-   <p>Or enter this code: <strong>{{ .Token }}</strong></p>
-   ```
-
-   On iPhone, an installed home-screen app can't receive a link that opens in Safari. With this line, you can type the 6-digit code into the app instead.
+   These are where the "confirm your email" and "reset password" links send you back to.
+2. Check that **Authentication → Sign In / Providers → Email** is enabled. It is by default.
 
 > Supabase's built-in email service only sends a few emails per hour. That's fine for personal use. For more, connect your own email provider under Authentication → Emails → SMTP Settings.
 
-## Step 6: Publish and sign in
+## Step 6: Publish and create your account
 
 1. If you haven't already, publish the site: on GitHub go to **Settings → Pages**, choose *Deploy from a branch*, then `main` and `/ (root)`.
-2. Open the site, then **Settings → Account**, enter your email, then **Send**.
-3. Tap the link in the email, or type the code. You'll see **Signed in as …**.
-4. Do the same on your other devices. Everything you created before signing in is uploaded to your account automatically.
+2. Open the site and click **Sign in** in the top bar, then **Create an account**. Enter your email and a password.
+3. Click the confirmation link Supabase emails you, then sign in from the top bar.
+4. Sign in on your other devices. Everything you created before signing in is uploaded to your account automatically.
+5. **Optional (recommended for a personal dashboard):** stop strangers from creating accounts. In Supabase, go to **Authentication → Sign In / Providers** and turn off **Allow new users to sign up**. Existing accounts keep working.
 
 ---
 

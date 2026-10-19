@@ -55,6 +55,7 @@ css/styles.css                shell styles + shared buttons/inputs; theme tokens
 js/main.js                    wires up icons, taskbar, launcher, switcher, session restore
 js/wm.js                      window manager (open/focus/drag/resize/min/max/close)
 js/config.js                  Supabase URL + publishable key (empty = local-only)
+js/account.js                 top bar sign-in / sign-out and the sign-in dialog
 js/cloud.js                   Supabase sign-in + offline-first synced collections
 js/settings-sections.js       lets apps add their own section to Settings
 js/prefs.js, storage.js, ui.js, pwa.js   small shared helpers
@@ -114,6 +115,8 @@ export default {
 
 2. Import it and add it to `APPS` in `js/apps/index.js`.
 3. If it stores data, add `supabase/migrations/<timestamp>_habits.sql` (copy `…_tasks.sql` and change the columns), then merge to `main` and GitHub creates the table.
+
+**Requiring sign-in:** add `requiresSignIn: true` next to `name`/`icon`. When someone opens the app while signed out, the dashboard's sign-in dialog appears first, and the app opens once they're signed in. Signing out closes it. Inside the app, `currentUser()` from `js/cloud.js` gives the signed-in user, and the Supabase client from `getClient()` already carries their session, so the one sign-in carries over to every app. (Without Supabase configured, apps open without sign-in.)
 
 `ctx` gives you `ctx.open(appId)`, `ctx.close()` and `ctx.setTitle(text)`. Store methods are `all()`, `get(id)`, `upsert(item)`, `remove(id)` and `subscribe(fn)`.
 

@@ -33,18 +33,30 @@ export function getClient() {
   return clientPromise;
 }
 
+// Resolves once we know whether someone is signed in (immediately if Supabase isn't configured).
+let markAuthReady;
+const authReady = new Promise((resolve) => { markAuthReady = resolve; });
+export const whenAuthReady = () => authReady;
+
+// True when an app marked `requiresSignIn` should ask for sign-in first.
+// Without Supabase configured there is nothing to sign in to, so everything is open.
+export const needsSignIn = () => isConfigured() && !user;
+
 // Call once at startup.
 export async function initCloud() {
-  if (!isConfigured()) return;
+  if (!isConfigured()) { markAuthReady(); return; }
   setStatus('signed-out');
   const client = await getClient();
-  if (!client) return;
+  if (!client) { markAuthReady(); return; }
   client.auth.onAuthStateChange((event, session) => {
+    if (event === 'PASSWORD_RECOVERY') window.dispatchEvent(new Event('password-recovery'));
     const next = session?.user ?? null;
-    if (next?.id === user?.id) return;
-    user = next;
-    setStatus(user ? 'synced' : 'signed-out');
-    window.dispatchEvent(new Event('auth-changed'));
+    if (next?.id !== user?.id) {
+      user = next;
+      setStatus(user ? 'synced' : 'signed-out');
+      window.dispatchEvent(new Event('auth-changed'));
+    }
+    markAuthReady();
   });
   // Pick up changes made on other devices when coming back to the app.
   window.addEventListener('online', () => window.dispatchEvent(new Event('sync-now')));
@@ -54,19 +66,34 @@ export async function initCloud() {
 }
 
 // ---- Auth -------------------------------------------------------------------
-export async function sendLoginEmail(email) {
+// One sign-in for the whole dashboard: every app reads the same session via currentUser().
+async function auth() {
   const client = await getClient();
-  if (!client) throw new Error('Supabase is not available');
-  const { error } = await client.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: location.origin + location.pathname },
-  });
+  if (!client) throw new Error('Can\'t reach the sign-in service. Check your connection.');
+  return client.auth;
+}
+
+const redirectTo = () => location.origin + location.pathname;
+
+export async function signIn(email, password) {
+  const { error } = await (await auth()).signInWithPassword({ email, password });
   if (error) throw error;
 }
 
-export async function verifyLoginCode(email, token) {
-  const client = await getClient();
-  const { error } = await client.auth.verifyOtp({ email, token, type: 'email' });
+// Returns true if the account still needs its email confirmed before signing in.
+export async function signUp(email, password) {
+  const { data, error } = await (await auth()).signUp({ email, password, options: { emailRedirectTo: redirectTo() } });
+  if (error) throw error;
+  return !data.session;
+}
+
+export async function sendPasswordReset(email) {
+  const { error } = await (await auth()).resetPasswordForEmail(email, { redirectTo: redirectTo() });
+  if (error) throw error;
+}
+
+export async function updatePassword(password) {
+  const { error } = await (await auth()).updateUser({ password });
   if (error) throw error;
 }
 
