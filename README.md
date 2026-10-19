@@ -68,7 +68,7 @@ js/apps/calculator/           calculator.js, calculator.css   (no data)
 js/apps/clock/                clock.js, clock.css             (no data)
 js/apps/settings/             settings.js, settings.css
 js/apps/astra-retrieval/      Astra Retrieval folder (logo + list of apps inside it)
-js/apps/loi-tracker/          loi-tracker.js, .css  ⇄ supabase/migrations/*_lois.sql  (inside Astra Retrieval)
+js/apps/loi-tracker/          loi-tracker.js, .css  ⇄ supabase/migrations/*_lois.sql  (the LOIs app, inside Astra Retrieval)
 js/folder.js                  createFolder() helper used by folders
 
 supabase/migrations/          database tables, applied by GitHub Actions

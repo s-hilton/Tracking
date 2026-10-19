@@ -1,4 +1,4 @@
-// Letters of Intent tracker (lives in the Astra Retrieval folder).
+// LOIs: letters of intent tracker (lives in the Astra Retrieval folder).
 // Self-contained: this folder + supabase/migrations/*_lois.sql.
 import { uid } from '../../storage.js';
 import { h, loadStyles } from '../../ui.js';
@@ -98,7 +98,7 @@ function exportCsv(lois) {
 
 export default {
   id: 'loi-tracker',
-  name: 'LOI Tracker',
+  name: 'LOIs',
   icon: '🤝',
   color: '#0f172a',
   size: { w: 820, h: 560 },
