@@ -4,7 +4,8 @@
 // and adds a "Web apps" section to Settings for managing them.
 import { uid } from '../../storage.js';
 import { h, loadStyles, glyph } from '../../ui.js';
-import { createCollection } from '../../cloud.js';
+import { createCollection, needsSignIn } from '../../cloud.js';
+import { showSignIn } from '../../account.js';
 import { registerSettingsSection } from '../../settings-sections.js';
 
 loadStyles(new URL('./web-apps.css', import.meta.url));
@@ -95,18 +96,20 @@ function webApp(link) {
 }
 
 // ---- Settings → Web apps ------------------------------------------------------
+// Adding and removing websites needs you to be signed in.
 function settingsSection() {
   const list = h('div');
   const renderList = () => {
     const all = links();
+    const locked = needsSignIn();
     list.replaceChildren(all.length
       ? h('ul', { class: 'link-list' }, ...all.map((link) => h('li', {},
         glyph(webApp(link), 'sm'),
         h('div', { class: 'link-text' }, h('strong', {}, link.name), h('span', { class: 'muted small' }, link.url)),
-        h('button', {
+        locked ? null : h('button', {
           class: 'icon-btn',
           'aria-label': `Remove ${link.name}`,
-          onclick: () => { store.remove(link.id); changed(); },
+          onclick: () => { if (!needsSignIn()) { store.remove(link.id); changed(); } },
         }, '✕'))))
       : h('p', { class: 'muted' }, 'No web apps yet.'));
   };
@@ -119,6 +122,7 @@ function settingsSection() {
     class: 'link-form',
     onsubmit: (event) => {
       event.preventDefault();
+      if (needsSignIn()) return;
       const href = normalizeUrl(url.value);
       if (!href) {
         error.textContent = 'Please enter a valid web address.';
@@ -144,9 +148,26 @@ function settingsSection() {
   error,
   h('button', { class: 'btn primary' }, 'Add to dashboard'));
 
-  renderList();
-  window.addEventListener('apps-changed', renderList);
-  return { el: h('div', { class: 'set-body' }, list, form), cleanup: () => window.removeEventListener('apps-changed', renderList) };
+  const lockedNote = h('div', { class: 'link-locked' },
+    h('p', { class: 'muted small' }, '🔒 Sign in to add or remove websites.'),
+    h('button', { class: 'btn primary', onclick: () => showSignIn({ reason: 'Sign in to add or remove websites.' }) }, 'Sign in'));
+
+  const render = () => {
+    renderList();
+    const locked = needsSignIn();
+    form.hidden = locked;
+    lockedNote.hidden = !locked;
+  };
+  render();
+  window.addEventListener('apps-changed', render);
+  window.addEventListener('auth-changed', render);
+  return {
+    el: h('div', { class: 'set-body' }, list, form, lockedNote),
+    cleanup: () => {
+      window.removeEventListener('apps-changed', render);
+      window.removeEventListener('auth-changed', render);
+    },
+  };
 }
 
 registerSettingsSection({ title: 'Web apps', order: 20, render: settingsSection });

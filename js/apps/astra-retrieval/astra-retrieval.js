@@ -6,5 +6,5 @@ export default createFolder({
   id: 'astra-retrieval',
   name: 'Astra Retrieval',
   image: new URL('./astra-retrieval.png', import.meta.url).href,
-  contains: [],
+  contains: ['loi-tracker'],
 });
