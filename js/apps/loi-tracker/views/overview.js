@@ -7,6 +7,8 @@ import {
 } from '../data.js';
 import { logActivity, completeTask } from '../editors.js';
 import { money, ago, section, empty, button, fmtDate, pill, productChip } from './common.js';
+import { dateFilter } from './analytics.js';
+import { resolveRange, describeRange, inRange, isoInRange, scopedActivities } from '../analytics.js';
 
 export function overview(ctx) {
   const { product } = ctx;
@@ -48,11 +50,23 @@ export function overview(ctx) {
   const stats = h('div', { class: 'bd-stats' },
     tile(product === 'all' ? 'Companies' : 'Companies in pipeline', String(product === 'all' ? companies.all().length : companyIds.size),
       product === 'all' ? `${companyIds.size} with opportunities` : null),
-    tile('Open opportunities', String(opps.filter((o) => stageGroup(o) === 'open').length), `${opps.length} total`),
+    tile('Open opportunities (now)', String(opps.filter((o) => stageGroup(o) === 'open').length), `${opps.length} total`),
     tile('Active signed LOIs', String(totals.signedCount), `${money(totals.signedValue)}${totals.signedUnpriced ? ` · ${totals.signedUnpriced} unpriced` : ''}`, 'good'),
     tile('Proposed LOI value', money(totals.proposedValue), `${totals.proposedCount} under negotiation`),
     tile('Overdue follow-ups', String(overdueTasks().length), null, overdueTasks().length ? 'bad' : ''),
     tile(`Expiring in ${EXPIRY_ALERT_DAYS[0]} days`, String(expiring.length), null, expiring.length ? 'warn' : ''));
+
+  // ---- This period (date filter) ----
+  const range = resolveRange(ctx.state.range ?? { preset: 'all' });
+  const periodActs = scopedActivities({ product, useCase: '' }).filter((a) => inRange(a.occurredAt, range));
+  const periodSigned = lois.all().filter((l) => l.signedOn && isoInRange(l.signedOn, range) && !['withdrawn', 'superseded'].includes(l.status)
+    && (product === 'all' || opps.some((o) => o.companyId === l.companyId)));
+  const period = section(`This period · ${describeRange(range)}`, button('Analytics', () => ctx.go('analytics'), 'btn ghost'),
+    dateFilter(ctx),
+    h('div', { class: 'bd-stats' },
+      tile('Opportunities created', String(opps.filter((o) => inRange(o.created, range)).length)),
+      tile('Activities logged', String(periodActs.length), `${periodActs.filter((a) => a.direction === 'outbound').length} outbound · ${periodActs.filter((a) => a.direction === 'inbound').length} inbound`),
+      tile('LOIs signed', String(periodSigned.length), money(periodSigned.reduce((sum, l) => sum + (loiValueFor(l, product) ?? 0), 0)))));
 
   // ---- Pipeline by stage (opportunities vs unique companies) ----
   const countBy = ctx.state.countBy ?? 'opportunities';
@@ -101,5 +115,5 @@ export function overview(ctx) {
     })))
     : null;
 
-  return h('div', { class: 'bd-view bd-overview' }, reminder, dueSection, stats, pipeline, byProduct, expiringSection);
+  return h('div', { class: 'bd-view bd-overview' }, reminder, dueSection, stats, period, pipeline, byProduct, expiringSection);
 }

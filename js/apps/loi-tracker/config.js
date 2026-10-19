@@ -248,3 +248,52 @@ export const USE_CASE_SOURCES = {
   customer_confirmed: 'Customer-confirmed',
   internally_proposed: 'Internally proposed',
 };
+
+// ---- Lead scoring (PRD §10) ---------------------------------------------------------
+// Each dimension is scored 1–5 or left unknown. Weights are percentages; change them
+// here. The score is the weighted average of the known dimensions, shown 0–100.
+// Scoring never changes an opportunity's stage.
+export const SCORE_DIMENSIONS = {
+  commercial: { label: 'Commercial potential', weight: 30 },
+  interest: { label: 'Customer interest', weight: 25 },
+  technical: { label: 'Technical fit', weight: 20 },
+  strategic: { label: 'Strategic importance', weight: 15 },
+  timeline: { label: 'Timeline alignment', weight: 10 },
+};
+// An opportunity scoring at least this is a "strong fit".
+export const STRONG_FIT_SCORE = 70;
+
+// Qualification facts, each tracked as yes / no / unknown.
+export const QUALIFICATION_FACTS = {
+  problem: 'Confirmed problem',
+  decision_maker: 'Decision maker identified',
+  budget: 'Budget',
+  mission_dates: 'Mission dates known',
+  technical_requirements: 'Technical requirements known',
+  willingness_to_pay: 'Willingness to pay',
+  open_to_loi: 'Open to an LOI',
+  no_blockers: 'No blocking capabilities',
+};
+
+// ---- Contacts ------------------------------------------------------------------------
+export const CONTACT_METHOD_TYPES = {
+  email: 'Email',
+  phone: 'Phone',
+  linkedin: 'LinkedIn',
+  messaging: 'Signal / WhatsApp / other',
+  other: 'Other',
+};
+
+// ---- Analytics -----------------------------------------------------------------------
+// The stage path used for the conversion funnel (On Hold / Lost are off-path).
+export const FUNNEL_STAGES = ['identified', 'reached_out', 'in_conversation', 'qualified', 'loi_discussion', 'loi_negotiating', 'loi_signed'];
+
+export const DATE_RANGES = {
+  all: 'All time',
+  d30: 'Last 30 days',
+  d90: 'Last 90 days',
+  quarter: 'This quarter',
+  year: 'This year',
+  m12: 'Last 12 months',
+  custom: 'Custom range…',
+};

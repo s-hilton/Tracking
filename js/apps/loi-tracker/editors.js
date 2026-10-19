@@ -6,11 +6,11 @@ import { openForm } from './form.js';
 import {
   PRODUCTS, STAGES, LOI_STATUSES, VALUE_BASIS, ACTIVITY_TYPES, DIRECTIONS, OUTCOMES, FOLLOW_UP_DEFAULTS,
   COMPANY_TYPES, LEAD_SOURCES, CONTACT_ROLES, CONTACT_STATUSES, PRIORITIES, TASK_STATUSES, USE_CASE_SOURCES, CURRENCY,
-  COMPANY_USE_CASE_PRODUCTS,
+  SCORE_DIMENSIONS, QUALIFICATION_FACTS, CONTACT_METHOD_TYPES, COMPANY_USE_CASE_PRODUCTS,
 } from './config.js';
 import {
   companies, contacts, opportunities, activities, tasks, lois, saveRecord, deleteCompany, contactName, companyName, addDays,
-  unallocated,
+  unallocated, contactMethods, contactAffiliations, isCurrentAt, wasAt, leadScore, todayIso,
 } from './data.js';
 
 const labels = (obj) => Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, typeof v === 'string' ? v : v.label]));
@@ -20,7 +20,11 @@ const by = () => currentUser()?.email ?? 'me';
 
 const companyOptions = () => [['', 'Choose a company…'],
   ...companies.all().slice().sort((a, b) => a.name.localeCompare(b.name)).map((c) => [c.id, c.name])];
-const contactOptions = (values) => contacts.all().filter((c) => c.companyId === values.companyId).map((c) => [c.id, contactName(c)]);
+// People at the company now, then people who used to be (kept so history stays linkable).
+const contactOptions = (values) => [
+  ...contacts.all().filter((c) => isCurrentAt(c, values.companyId)).map((c) => [c.id, contactName(c)]),
+  ...contacts.all().filter((c) => wasAt(c, values.companyId) && !isCurrentAt(c, values.companyId)).map((c) => [c.id, `${contactName(c)} (former)`]),
+];
 const opportunityOptions = (values) => opportunities.all().filter((o) => o.companyId === values.companyId)
   .map((o) => [o.id, `${o.name || PRODUCTS[o.product]?.short} · ${PRODUCTS[o.product]?.short ?? o.product}`]);
 
@@ -65,28 +69,112 @@ export function editCompany(host, company, { onSaved, onDeleted } = {}) {
 }
 
 // ---- Contact --------------------------------------------------------------------
+// A list editor for the contact form: rows of inputs bound to values[key].
+function rowsEditor(values, key, { blank, row, addLabel, extra }) {
+  const wrap = h('div', { class: `bd-rows-editor bd-${key}` });
+  const draw = () => {
+    values[key] = values[key] ?? [];
+    wrap.replaceChildren(
+      ...values[key].map((item, i) => h('div', { class: 'bd-edit-row' }, ...row(item, draw),
+        h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Remove', onclick: () => { values[key].splice(i, 1); draw(); } }, '✕'))),
+      h('div', { class: 'bd-edit-actions' },
+        h('button', { type: 'button', class: 'btn ghost', onclick: () => { values[key].push(blank()); draw(); } }, addLabel),
+        extra ? extra(draw) : null));
+  };
+  draw();
+  return wrap;
+}
+
+const bound = (item, field, props = {}) => h('input', {
+  class: 'input', value: item[field] ?? '', ...props,
+  oninput: (e) => { item[field] = e.target.value; },
+});
+
+function methodsEditor(values) {
+  return rowsEditor(values, 'methods', {
+    blank: () => ({ type: 'email', value: '', label: '' }),
+    addLabel: '+ Add email, phone or handle',
+    row: (m) => [
+      h('select', { class: 'input', 'aria-label': 'Type', onchange: (e) => { m.type = e.target.value; } },
+        ...Object.entries(CONTACT_METHOD_TYPES).map(([k, label]) => h('option', { value: k, selected: k === m.type }, label))),
+      bound(m, 'value', { placeholder: 'Address, number or handle', 'aria-label': 'Value', autocomplete: 'off' }),
+      bound(m, 'label', { placeholder: 'Work, personal…', 'aria-label': 'Label', class: 'input bd-narrow' }),
+    ],
+  });
+}
+
+function affiliationsEditor(values) {
+  const options = () => companies.all().slice().sort((a, b) => a.name.localeCompare(b.name));
+  return rowsEditor(values, 'affiliations', {
+    blank: () => ({ companyId: '', title: '', department: '', start: '', end: '', current: true }),
+    addLabel: '+ Add company / role',
+    // Changed jobs: end the current role(s) today and start a new one.
+    extra: (draw) => h('button', {
+      type: 'button',
+      class: 'btn ghost',
+      onclick: () => {
+        values.affiliations.forEach((a) => { if (a.current) { a.current = false; a.end = a.end || todayIso(); } });
+        values.affiliations.push({ companyId: '', title: '', department: '', start: todayIso(), end: '', current: true });
+        draw();
+      },
+    }, 'Changed jobs…'),
+    row: (a, draw) => [
+      h('select', { class: 'input', 'aria-label': 'Company', onchange: (e) => { a.companyId = e.target.value; } },
+        h('option', { value: '' }, 'Company…'),
+        ...options().map((c) => h('option', { value: c.id, selected: c.id === a.companyId }, c.name))),
+      bound(a, 'title', { placeholder: 'Title', 'aria-label': 'Title' }),
+      bound(a, 'department', { placeholder: 'Department', 'aria-label': 'Department' }),
+      bound(a, 'start', { type: 'date', 'aria-label': 'Start date', title: 'Start date' }),
+      a.current
+        ? h('span', { class: 'bd-current' }, 'Current')
+        : bound(a, 'end', { type: 'date', 'aria-label': 'End date', title: 'End date' }),
+      h('label', { class: 'bd-check', title: 'Works here now' },
+        h('input', { type: 'checkbox', checked: Boolean(a.current), onchange: (e) => { a.current = e.target.checked; if (a.current) a.end = ''; draw(); } }),
+        h('span', {}, 'Now')),
+    ],
+  });
+}
+
 export function editContact(host, contact, { companyId } = {}) {
+  const values = contact
+    ? { ...contact, methods: contactMethods(contact), affiliations: contactAffiliations(contact) }
+    : { status: 'active', role: '', methods: [{ type: 'email', value: '', label: 'Work' }], affiliations: companyId ? [{ companyId, title: '', department: '', start: '', end: '', current: true }] : [{ companyId: '', title: '', department: '', start: '', end: '', current: true }] };
   openForm(host, {
     title: contact ? `Edit ${contactName(contact)}` : 'New contact',
-    values: contact ?? { companyId, status: 'active', role: '' },
+    values,
     submitLabel: contact ? 'Save' : 'Add contact',
     fields: [
-      ...companyField(companyId || contact),
       { key: 'firstName', label: 'First name', required: true },
       { key: 'lastName', label: 'Last name' },
-      { key: 'title', label: 'Title' },
-      { key: 'department', label: 'Department' },
-      { key: 'email', label: 'Email', type: 'email' },
-      { key: 'phone', label: 'Phone', type: 'tel' },
-      { key: 'linkedin', label: 'LinkedIn' },
       { key: 'role', label: 'Relationship', type: 'select', options: CONTACT_ROLES },
+      { type: 'custom', label: 'Contact methods', render: (v) => methodsEditor(v) },
+      { type: 'custom', label: 'Companies and roles (employment history)', render: (v) => affiliationsEditor(v) },
       { key: 'status', label: 'Status', type: 'select', options: CONTACT_STATUSES },
       { key: 'preferredChannel', label: 'Preferred channel' },
       { key: 'timezone', label: 'Time zone' },
-      { key: 'introducedBy', label: 'How discovered / introduced by' },
+      { key: 'introducedBy', label: 'How discovered / introduced by', wide: true },
       { key: 'notes', label: 'Notes', type: 'textarea', wide: true },
     ],
-    onSubmit: (v) => { saveRecord(contacts, v); },
+    onSubmit: (v) => {
+      const methods = (v.methods ?? []).map((m) => ({ ...m, value: m.value.trim() })).filter((m) => m.value);
+      const affiliations = (v.affiliations ?? []).filter((a) => a.companyId);
+      if (!affiliations.length) return 'Add at least one company for this person.';
+      if (methods.some((m) => m.type === 'email' && !/^\S+@\S+\.\S+$/.test(m.value))) return 'One of the email addresses doesn\'t look right.';
+      const current = affiliations.find((a) => a.current) ?? affiliations[0];
+      const first = (type) => methods.find((m) => m.type === type)?.value ?? '';
+      saveRecord(contacts, {
+        ...v,
+        methods,
+        affiliations,
+        // Kept in step for search, exports and older screens.
+        companyId: current.companyId,
+        title: current.title,
+        department: current.department,
+        email: first('email'),
+        phone: first('phone'),
+        linkedin: first('linkedin'),
+      });
+    },
     onDelete: contact ? () => contacts.remove(contact.id) : null,
     deleteLabel: 'Delete contact',
   });
@@ -106,7 +194,7 @@ export function editOpportunity(host, opp, { companyId, product } = {}) {
 
   openForm(host, {
     title: opp ? `Edit opportunity` : 'New opportunity',
-    values: opp ?? { companyId, product: initialProduct, stage: 'identified', priority: 'normal', useCases: companyTags({ companyId, product: initialProduct }), contactIds: [], details: {}, valueBasis: 'total', useCaseSource: '' },
+    values: opp ?? { companyId, product: initialProduct, stage: 'identified', priority: 'normal', useCases: companyTags({ companyId, product: initialProduct }), contactIds: [], details: {}, scores: {}, qualification: {}, valueBasis: 'total', useCaseSource: '' },
     submitLabel: opp ? 'Save' : 'Add opportunity',
     fields: [
       ...companyField(companyId || opp),
@@ -126,6 +214,25 @@ export function editOpportunity(host, opp, { companyId, product } = {}) {
       { key: 'expectedSigning', label: 'Expected signing date', type: 'date' },
       { key: 'nextStep', label: 'Next step' },
       { key: 'risks', label: 'Risks / blockers', type: 'textarea', wide: true, rows: 2 },
+      { type: 'heading', label: 'Lead score' },
+      ...Object.entries(SCORE_DIMENSIONS).map(([key, dim]) => ({
+        key: `scores.${key}`, label: `${dim.label} (${dim.weight}%)`, type: 'select', refresh: true,
+        options: [['', 'Unknown'], ['1', '1 · low'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5 · high']],
+      })),
+      {
+        type: 'custom',
+        render: (v) => {
+          const { score, known, of } = leadScore(v);
+          return h('p', { class: 'bd-score-line' },
+            score == null ? 'Not scored yet.' : h('strong', {}, `Score ${score} / 100`),
+            h('span', { class: 'muted small' }, ` · ${known} of ${of} dimensions known. Scores never change the stage.`));
+        },
+      },
+      { type: 'heading', label: 'Qualification checklist' },
+      ...Object.entries(QUALIFICATION_FACTS).map(([key, label]) => ({
+        key: `qualification.${key}`, label, type: 'select', options: [['', 'Unknown'], ['yes', 'Yes'], ['no', 'No']],
+      })),
+      { key: 'blockingCapabilities', label: 'Blocking capabilities', type: 'textarea', wide: true, rows: 2, placeholder: 'What we would need to have before they sign' },
       ...productFields,
       { type: 'heading', label: 'Notes' },
       { key: 'notes', label: 'Notes', type: 'textarea', wide: true },

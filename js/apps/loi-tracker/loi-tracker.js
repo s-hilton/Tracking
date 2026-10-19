@@ -6,7 +6,8 @@
 //   data.js     synced Supabase tables + derived numbers (reminders, LOI totals)
 //   form.js     the shared add/edit form
 //   editors.js  add/edit screens for each record type
-//   views/      one file per tab
+//   analytics.js  conversion, velocity and trend calculations (date-filtered)
+//   views/      one file per tab (charts.js: the small chart kit)
 import { h, loadStyles } from '../../ui.js';
 import { load, save } from '../../storage.js';
 import { STALE_DAYS, PRODUCTS } from './config.js';
@@ -18,6 +19,7 @@ import { pipeline } from './views/pipeline.js';
 import { loiRegister } from './views/lois.js';
 import { activityLog } from './views/activity.js';
 import { followUps } from './views/followups.js';
+import { analytics } from './views/analytics.js';
 import * as data from './data.js';
 
 loadStyles(new URL('./loi-tracker.css', import.meta.url));
@@ -30,6 +32,7 @@ const TABS = {
   lois: { label: 'LOIs', view: loiRegister },
   activity: { label: 'Activity', view: activityLog },
   followups: { label: 'Follow-ups', view: followUps },
+  analytics: { label: 'Analytics', view: analytics },
 };
 const PAGES = { ...TABS, company: { label: 'Company', view: companyPage, tab: 'companies' } };
 

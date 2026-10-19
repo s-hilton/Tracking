@@ -2,11 +2,13 @@
 import { h } from '../../../ui.js';
 import {
   PRODUCTS, STAGES, LOI_STATUSES, ACTIVITY_TYPES, DIRECTIONS, OUTCOMES, COMPANY_TYPES, LEAD_SOURCES, CONTACT_ROLES,
-  CONTACT_STATUSES, VALUE_BASIS, STALE_DAYS, PRIORITIES, COMPANY_USE_CASE_PRODUCTS,
+  CONTACT_STATUSES, VALUE_BASIS, STALE_DAYS, STRONG_FIT_SCORE, PRIORITIES, COMPANY_USE_CASE_PRODUCTS,
 } from '../config.js';
 import {
-  companies, related, lastTouch, hasSignedLoi, contactName, opportunities, contacts, isActiveSigned, todayIso, companyUseCases,
+  companies, related, lastTouch, hasSignedLoi, contactName, opportunities, contacts, isActiveSigned, todayIso,
+  contactMethods, contactAffiliations, currentAffiliation, leadScore, stageGroup, companyUseCases,
 } from '../data.js';
+import { scorePill } from './analytics.js';
 import {
   editCompany, editContact, editOpportunity, logActivity, editTask, editLoi, completeTask, reopenTask,
 } from '../editors.js';
@@ -19,6 +21,7 @@ const VIEWS = {
   stale: `Needs follow-up (${STALE_DAYS}+ days)`,
   never: 'Never contacted',
   active: 'In conversation or later',
+  strong: `Strong fit (score ${STRONG_FIT_SCORE}+), no outreach yet`,
   signed: 'Signed LOIs',
   dnc: 'Do not contact',
 };
@@ -36,12 +39,15 @@ export function companyList(ctx) {
     const rows = companies.all()
       .map((c) => ({ c, r: related(c.id), last: lastTouch(c.id) }))
       .filter(({ c, r }) => product === 'all' || r.opportunities.some((o) => o.product === product) || c.useCases?.[product]?.length)
-      .filter(({ c, r }) => matches(state.companyQuery, c.name, c.aliases, c.tags, c.industry, c.country, ...companyUseCases(c).map(([, label]) => label), ...r.contacts.flatMap((x) => [contactName(x), x.email])))
+      .filter(({ c, r }) => matches(state.companyQuery, c.name, c.aliases, c.tags, c.industry, c.country, ...companyUseCases(c).map(([, label]) => label),
+        ...[...r.contacts, ...r.formerContacts].flatMap((x) => [contactName(x), ...contactMethods(x).map((m) => m.value)])))
       .filter(({ c, r, last }) => ({
         all: true,
         stale: !c.doNotContact && !hasSignedLoi(c.id) && last < staleCutoff,
         never: r.activities.length === 0,
         active: r.opportunities.some((o) => CONVERSATION_STAGES.includes(o.stage)),
+        strong: !r.activities.some((a) => a.direction === 'outbound')
+          && r.opportunities.some((o) => stageGroup(o) === 'open' && (leadScore(o).score ?? 0) >= STRONG_FIT_SCORE),
         signed: hasSignedLoi(c.id),
         dnc: c.doNotContact,
       })[state.companyView])
@@ -110,17 +116,30 @@ export function companyPage(ctx) {
       button('Log activity', () => logActivity(host, null, { companyId: company.id }), 'btn primary'),
       button('Edit', () => editCompany(host, company, { onDeleted: () => ctx.go('companies') })))) ;
 
-  const contactsSection = section('Contacts', add('+ Contact', () => editContact(host, null, { companyId: company.id })),
-    r.contacts.length ? h('ul', { class: 'bd-rows' }, ...r.contacts.map((c) => h('li', { class: 'bd-row' },
+  const contactRow = (c, former) => {
+    const methods = contactMethods(c);
+    const email = methods.find((m) => m.type === 'email')?.value;
+    const linkedin = methods.find((m) => m.type === 'linkedin')?.value;
+    const here = contactAffiliations(c).filter((a) => a.companyId === company.id);
+    const role = (former ? here.find((a) => !a.current) : here.find((a) => a.current)) ?? here[0];
+    const now = former ? currentAffiliation(c) : null;
+    return h('li', { class: `bd-row${former ? ' faded' : ''}` },
       h('button', { class: 'bd-row-main', onclick: () => editContact(host, c) },
-        h('strong', {}, contactName(c), c.title ? h('span', { class: 'muted' }, ` · ${c.title}`) : null),
-        h('span', { class: 'muted small' }, [c.email, c.phone].filter(Boolean).join(' · ') || 'No contact details')),
+        h('strong', {}, contactName(c), role?.title ? h('span', { class: 'muted' }, ` · ${role.title}`) : null),
+        h('span', { class: 'muted small' }, former
+          ? [role?.end ? `Left ${fmtDate(role.end)}` : 'Former', now ? `now at ${companies.get(now.companyId)?.name ?? 'another company'}` : null].filter(Boolean).join(' · ')
+          : [methods[0]?.value, methods.length > 1 ? `+${methods.length - 1} more` : null].filter(Boolean).join(' · ') || 'No contact details')),
       h('div', { class: 'bd-row-meta' },
         c.role ? pill(CONTACT_ROLES[c.role] ?? c.role, 'info') : null,
         c.status && c.status !== 'active' ? pill(CONTACT_STATUSES[c.status] ?? c.status, 'warn') : null,
-        c.email ? h('a', { class: 'bd-link', href: `mailto:${c.email}` }, 'Email') : null,
-        extLink(c.linkedin, 'LinkedIn')))))
-      : empty('No contacts yet.'));
+        email && !former ? h('a', { class: 'bd-link', href: `mailto:${email}` }, 'Email') : null,
+        linkedin && !former ? extLink(linkedin.startsWith('http') ? linkedin : `https://${linkedin}`, 'LinkedIn') : null));
+  };
+  const contactsSection = section('Contacts', add('+ Contact', () => editContact(host, null, { companyId: company.id })),
+    r.contacts.length ? h('ul', { class: 'bd-rows' }, ...r.contacts.map((c) => contactRow(c, false))) : empty('No contacts yet.'),
+    r.formerContacts.length ? h('details', { class: 'bd-former' },
+      h('summary', { class: 'muted small' }, `Former contacts (${r.formerContacts.length})`),
+      h('ul', { class: 'bd-rows' }, ...r.formerContacts.map((c) => contactRow(c, true)))) : null);
 
   const oppSection = section('Opportunities', add('+ Opportunity', () => editOpportunity(host, null, { companyId: company.id, product: ctx.product })),
     r.opportunities.length ? h('ul', { class: 'bd-rows' }, ...r.opportunities.map((o) => h('li', { class: 'bd-row' },
@@ -132,6 +151,7 @@ export function companyPage(ctx) {
         ].filter(Boolean).join(' · ') || 'No use case yet')),
       h('div', { class: 'bd-row-meta' },
         productChip(o.product),
+        scorePill(leadScore(o).score),
         pill(STAGES[o.stage]?.label ?? o.stage, o.stage === 'lost' ? 'bad' : ['loi_signed', 'contracted'].includes(o.stage) ? 'good' : 'info'),
         h('span', { class: 'bd-num' }, money(o.estimatedValue)))))) : empty('No opportunities yet. One company can have opportunities in several products.'));
 
