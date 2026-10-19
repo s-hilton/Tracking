@@ -155,6 +155,7 @@ export function createWindowManager({ layer, getApp, onChange }) {
 
     const ctx = {
       open: (otherId) => open(otherId),
+      getApp,
       close: () => close(id),
       setTitle: (text) => { title.textContent = text || app.name; },
     };

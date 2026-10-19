@@ -16,8 +16,9 @@ import calculator from './calculator/calculator.js';
 import clock from './clock/clock.js';
 import webApps from './web-apps/web-apps.js';
 import settings from './settings/settings.js';
+import astraRetrieval from './astra-retrieval/astra-retrieval.js';
 
-const APPS = [notes, tasks, calculator, clock, settings, webApps];
+const APPS = [notes, tasks, calculator, clock, settings, astraRetrieval, webApps];
 
 const withDefaults = (app) => ('requiresSignIn' in app ? app : { ...app, requiresSignIn: true });
 
@@ -25,6 +26,14 @@ export function getApps() {
   return APPS
     .flatMap((entry) => (typeof entry.apps === 'function' ? entry.apps() : [entry]))
     .map(withDefaults);
+}
+
+// What shows on the desktop and in the launcher: everything except apps
+// that live inside a folder (they show when the folder is opened).
+export function getDesktopApps() {
+  const apps = getApps();
+  const inFolders = new Set(apps.flatMap((app) => app.contains ?? []));
+  return apps.filter((app) => !inFolders.has(app.id));
 }
 
 export function getApp(id) {

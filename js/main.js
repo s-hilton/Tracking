@@ -1,4 +1,4 @@
-import { getApps, getApp } from './apps/index.js';
+import { getDesktopApps, getApp } from './apps/index.js';
 import { createWindowManager } from './wm.js';
 import { applyPrefs } from './prefs.js';
 import { load, save } from './storage.js';
@@ -48,7 +48,7 @@ function closeProtectedApps() {
 const icon = (app) => appIcon(app, openApp, { locked: app.requiresSignIn && needsSignIn() });
 
 function renderIcons() {
-  $('#icons').replaceChildren(...getApps().map(icon));
+  $('#icons').replaceChildren(...getDesktopApps().map(icon));
 }
 
 // ---- Taskbar ---------------------------------------------------------------
@@ -78,7 +78,7 @@ function tickClock() {
 // ---- Launcher (all apps) ---------------------------------------------------
 function renderLauncher() {
   const query = $('#launcher-search').value.trim().toLowerCase();
-  const apps = getApps().filter((app) => app.name.toLowerCase().includes(query));
+  const apps = getDesktopApps().filter((app) => app.name.toLowerCase().includes(query));
   $('#launcher-grid').replaceChildren(
     ...(apps.length ? apps.map(icon) : [h('p', { class: 'muted' }, 'No apps found')]),
   );
