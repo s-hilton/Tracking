@@ -1,6 +1,6 @@
 // Offline support: always fetch the latest files, fall back to the cache when offline.
 // Bump VERSION when you deploy so old caches are cleaned up.
-const VERSION = 'v8';
+const VERSION = 'v9';
 const CACHE = `webtop-${VERSION}`;
 
 // Core files are cached up front; app files (js/apps/**) are cached the

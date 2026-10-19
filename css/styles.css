@@ -271,6 +271,23 @@ button { cursor: pointer; }
   font-size: 11px;
   text-shadow: none;
 }
+.count-badge {
+  position: absolute;
+  top: 2px;
+  left: calc(50% + 14px);
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 22px;
+  text-align: center;
+  text-shadow: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
 .app-icon.locked .glyph { filter: saturate(0.6) brightness(0.9); }
 .glyph.sm { width: 34px; height: 34px; border-radius: 10px; font-size: 18px; flex-shrink: 0; }
 
@@ -554,3 +571,25 @@ body.mobile .overlay-panel {
 .folder-grid .app-icon { color: var(--text); text-shadow: none; }
 .folder-grid .app-icon:hover { background: var(--surface-2); }
 .folder-empty { display: grid; place-items: center; height: 100%; margin: 0; }
+
+/* ---- Reminder toast ---------------------------------------------------------------- */
+.toast {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--taskbar-h) + var(--safe-bottom) + 16px);
+  z-index: 10002;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(420px, calc(100vw - 32px));
+  padding: 12px 12px 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  animation: win-in 0.2s ease-out;
+}
+.toast-icon { font-size: 24px; display: grid; place-items: center; }
+.toast-icon .icon-img { width: 28px; height: 28px; }
+.toast-text { flex: 1; display: grid; gap: 2px; font-size: 13px; }
+body.mobile .toast { left: 16px; right: 16px; width: auto; }

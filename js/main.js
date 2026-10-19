@@ -1,4 +1,4 @@
-import { getDesktopApps, getApp } from './apps/index.js';
+import { getApps, getDesktopApps, getApp } from './apps/index.js';
 import { createWindowManager } from './wm.js';
 import { applyPrefs } from './prefs.js';
 import { load, save } from './storage.js';
@@ -45,10 +45,45 @@ function closeProtectedApps() {
 }
 
 // ---- Desktop / home screen icons -------------------------------------------
-const icon = (app) => appIcon(app, openApp, { locked: app.requiresSignIn && needsSignIn() });
+// Apps can show a number on their icon via `badge()`; a folder shows the total of its apps.
+function badgeOf(app) {
+  if (!app || needsSignIn()) return 0;
+  if (app.contains) return app.contains.reduce((sum, id) => sum + badgeOf(getApp(id)), 0);
+  try { return app.badge?.() ?? 0; } catch { return 0; }
+}
+
+const icon = (app) => appIcon(app, openApp, { locked: app.requiresSignIn && needsSignIn(), badge: badgeOf(app) });
 
 function renderIcons() {
   $('#icons').replaceChildren(...getDesktopApps().map(icon));
+}
+
+// ---- Daily reminders ----------------------------------------------------------
+// Apps can return a message from `reminder()`; it's shown once a day per app.
+let reminderTimer;
+function checkReminders() {
+  clearTimeout(reminderTimer);
+  reminderTimer = setTimeout(() => {
+    if (needsSignIn()) return;
+    const today = new Date().toDateString();
+    for (const app of getApps()) {
+      let message = null;
+      try { message = app.reminder?.(); } catch { /* ignore */ }
+      if (!message || load(`reminder:${app.id}`, '') === today) continue;
+      save(`reminder:${app.id}`, today);
+      showToast(app, message);
+      break; // one at a time
+    }
+  }, 2000);
+}
+
+function showToast(app, message) {
+  const toast = h('div', { class: 'toast', role: 'status' },
+    h('span', { class: 'toast-icon' }, iconContent(app)),
+    h('div', { class: 'toast-text' }, h('strong', {}, app.name), h('span', {}, message)),
+    h('button', { class: 'btn primary', onclick: () => { toast.remove(); openApp(app.id); } }, 'Open'),
+    h('button', { class: 'icon-btn', 'aria-label': 'Dismiss', onclick: () => toast.remove() }, '✕'));
+  document.body.append(toast);
 }
 
 // ---- Taskbar ---------------------------------------------------------------
@@ -144,6 +179,12 @@ window.addEventListener('auth-changed', () => {
   closeProtectedApps();
   renderIcons(); // lock badges
 });
+let iconsTimer;
+window.addEventListener('badges-changed', () => {
+  clearTimeout(iconsTimer);
+  iconsTimer = setTimeout(renderIcons, 200);
+  checkReminders();
+});
 window.addEventListener('apps-changed', () => {
   renderIcons();
   renderLauncher();
@@ -158,4 +199,4 @@ setInterval(tickClock, 10_000);
 // Restore the windows that were open last time.
 for (const saved of load('session', [])) wm.open(saved.appId, saved);
 renderTaskbar();
-whenAuthReady().then(() => { closeProtectedApps(); renderIcons(); });
+whenAuthReady().then(() => { closeProtectedApps(); renderIcons(); checkReminders(); });

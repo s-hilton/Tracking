@@ -38,14 +38,15 @@ export function glyph(app, size = '') {
   return h('span', { class: `glyph ${size}${app.image ? ' has-img' : ''}`, style: `--c:${app.color}` }, iconContent(app));
 }
 
-export function appIcon(app, onOpen, { locked = false } = {}) {
+export function appIcon(app, onOpen, { locked = false, badge = 0 } = {}) {
   return h('button', {
     class: `app-icon${locked ? ' locked' : ''}`,
-    title: locked ? `${app.name} (sign in to open)` : app.name,
+    title: locked ? `${app.name} (sign in to open)` : badge ? `${app.name} (${badge} need attention)` : app.name,
     onclick: () => onOpen(app.id),
   },
   glyph(app),
   locked ? h('span', { class: 'lock-badge', 'aria-hidden': 'true' }, '🔒') : null,
+  !locked && badge ? h('span', { class: 'count-badge', 'aria-hidden': 'true' }, badge > 99 ? '99+' : String(badge)) : null,
   h('span', { class: 'label' }, app.name),
   );
 }

@@ -68,7 +68,9 @@ js/apps/calculator/           calculator.js, calculator.css   (no data)
 js/apps/clock/                clock.js, clock.css             (no data)
 js/apps/settings/             settings.js, settings.css
 js/apps/astra-retrieval/      Astra Retrieval folder (logo + list of apps inside it)
-js/apps/loi-tracker/          loi-tracker.js, .css  ⇄ supabase/migrations/*_lois.sql  (the LOIs app, inside Astra Retrieval)
+js/apps/loi-tracker/          the LOIs app (inside Astra Retrieval): Astra Retrieval business development
+                                config.js (products, use cases, stages, reminder days), data.js, form.js,
+                                editors.js, views/  ⇄ supabase/migrations/*_lois.sql, *_business_development.sql
 js/folder.js                  createFolder() helper used by folders
 
 supabase/migrations/          database tables, applied by GitHub Actions
@@ -120,6 +122,8 @@ export default {
 3. If it stores data, add `supabase/migrations/<timestamp>_habits.sql` (copy `…_tasks.sql` and change the columns), then merge to `main` and GitHub creates the table.
 
 **Sign-in:** every app requires sign-in by default (set in `js/apps/index.js`). Add `requiresSignIn: false` to an app to leave it open, as Settings does. When someone opens an app while signed out, its icon shows a 🔒 and the dashboard's sign-in dialog appears first, and the app opens once they're signed in. Signing out closes it. Inside the app, `currentUser()` from `js/cloud.js` gives the signed-in user, and the Supabase client from `getClient()` already carries their session, so the one sign-in carries over to every app. (Without Supabase configured, apps open without sign-in.)
+
+**Badges and reminders:** an app can add `badge: () => number` (a red count on its icon; folders show the total of their apps) and `reminder: () => 'message' | null` (shown as a pop-up once a day when the dashboard opens). The LOIs app uses both for companies needing a follow-up.
 
 `ctx` gives you `ctx.open(appId)`, `ctx.close()` and `ctx.setTitle(text)`. Store methods are `all()`, `get(id)`, `upsert(item)`, `remove(id)` and `subscribe(fn)`.
 

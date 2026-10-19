@@ -12,21 +12,10 @@ loadStyles(new URL('./web-apps.css', import.meta.url));
 
 const COLORS = ['#475569', '#2563eb', '#0d9488', '#16a34a', '#ca8a04', '#ea580c', '#dc2626', '#9333ea'];
 
-const DEFAULT_LINKS = [
-  {
-    id: 'map',
-    name: 'Map',
-    icon: '🗺️',
-    color: '#0d9488',
-    url: 'https://www.openstreetmap.org/export/embed.html?bbox=-0.25%2C51.45%2C0.05%2C51.56&layer=mapnik',
-    created: 0,
-  },
-];
 
 const store = createCollection({
   table: 'web_apps',
   key: 'links',
-  fallback: DEFAULT_LINKS,
   toRow: (l) => ({ id: l.id, name: l.name, url: l.url, icon: l.icon, color: l.color, created_at: new Date(l.created ?? 0).toISOString() }),
   fromRow: (r) => ({ id: r.id, name: r.name, url: r.url, icon: r.icon, color: r.color, created: Date.parse(r.created_at) }),
   order: { column: 'created_at', ascending: true },
@@ -109,7 +98,7 @@ function settingsSection() {
         locked ? null : h('button', {
           class: 'icon-btn',
           'aria-label': `Remove ${link.name}`,
-          onclick: () => { if (!needsSignIn()) { store.remove(link.id); changed(); } },
+          onclick: () => { if (!needsSignIn()) store.remove(link.id); },
         }, '✕'))))
       : h('p', { class: 'muted' }, 'No web apps yet.'));
   };
@@ -137,7 +126,6 @@ function settingsSection() {
         color: COLORS[store.all().length % COLORS.length],
         created: Date.now(),
       });
-      changed();
       form.reset();
       error.hidden = true;
     },

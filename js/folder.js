@@ -19,7 +19,7 @@ export function createFolder({ id, name, image, icon = '📁', color = '#ffffff'
       const apps = contains.map((appId) => ctx.getApp(appId)).filter(Boolean);
       root.append(h('div', { class: 'app folder' },
         apps.length
-          ? h('div', { class: 'icon-grid folder-grid' }, ...apps.map((app) => appIcon(app, (appId) => ctx.open(appId))))
+          ? h('div', { class: 'icon-grid folder-grid' }, ...apps.map((app) => appIcon(app, (appId) => ctx.open(appId), { badge: app.badge?.() ?? 0 })))
           : h('p', { class: 'folder-empty muted' }, 'This folder is empty.')));
     },
   };

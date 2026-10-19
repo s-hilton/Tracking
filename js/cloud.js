@@ -123,6 +123,7 @@ export function createCollection({ table, key, fallback = [], toRow, fromRow, or
   let outbox = load(outboxKey, {}); // id -> { op: 'upsert' | 'delete', v }
   let version = 0;
   let flushTimer = null;
+  let retryTimer = null;
   let syncing = null;
   const listeners = new Set();
 
@@ -190,26 +191,23 @@ export function createCollection({ table, key, fallback = [], toRow, fromRow, or
       if (!client) return;
       try {
         setStatus('syncing');
-        // First sign-in on this device: upload what was created before signing in
-        // (but not the untouched starter data, or every new device would duplicate it).
+        // First sign-in on this device: upload what was created before signing in.
+        // Untouched starter data is never uploaded: the cloud copy is the source of
+        // truth, so something you deleted can't come back from another device.
         const marker = `${key}:synced:${user.id}`;
         const firstSync = !load(marker, false);
         if (firstSync && !fromFallback) queueAll();
         await flush(client);
-        if (full || firstSync) {
-          const remote = await fetchRemote(client);
-          if (firstSync && fromFallback && remote.length === 0) {
-            queueAll(); // brand-new account: start it off with the starter data
-            await flush(client);
-          } else {
-            merge(remote);
-          }
-        }
+        if (full || firstSync) merge(await fetchRemote(client));
         save(marker, true);
+        clearTimeout(retryTimer);
         setStatus('synced');
       } catch (err) {
         console.warn(`Sync failed for ${table}`, err);
         setStatus('error', err.message || 'Sync failed');
+        // Try again shortly (e.g. a table that's still being created, or a flaky connection).
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(() => sync(), 30000);
       }
     })().finally(() => { syncing = null; });
     return syncing;
@@ -240,13 +238,15 @@ export function createCollection({ table, key, fallback = [], toRow, fromRow, or
       else items[index] = item;
       persist();
       queue(item.id, 'upsert');
+      emit();
     },
     remove(id) {
       items = items.filter((item) => item.id !== id);
       persist();
       queue(id, 'delete');
+      emit();
     },
-    // fn(items) runs whenever data arrives from the server. Returns an unsubscribe function.
+    // fn(items) runs whenever the data changes, here or from the server. Returns an unsubscribe function.
     subscribe(fn) {
       listeners.add(fn);
       return () => listeners.delete(fn);
