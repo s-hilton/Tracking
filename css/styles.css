@@ -247,6 +247,27 @@ button { cursor: pointer; }
   text-shadow: none;
   transition: transform 0.1s;
 }
+.glyph.has-img { background: #fff; }
+.glyph .icon-img { width: 68%; height: 68%; object-fit: contain; border-radius: 6px; }
+.icon-img { -webkit-user-drag: none; user-select: none; }
+.task-icon .icon-img, .title-icon .icon-img { width: 18px; height: 18px; object-fit: contain; display: block; border-radius: 4px; }
+.title-icon { display: flex; align-items: center; }
+.app-icon { position: relative; }
+.lock-badge {
+  position: absolute;
+  top: 2px;
+  left: calc(50% + 14px);
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  font-size: 11px;
+  text-shadow: none;
+}
+.app-icon.locked .glyph { filter: saturate(0.6) brightness(0.9); }
 .glyph.sm { width: 34px; height: 34px; border-radius: 10px; font-size: 18px; flex-shrink: 0; }
 
 /* ---- Windows ----------------------------------------------------------------- */

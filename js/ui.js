@@ -20,9 +20,32 @@ export function loadStyles(url) {
   document.head.append(h('link', { rel: 'stylesheet', href }));
 }
 
-export function appIcon(app, onOpen) {
-  return h('button', { class: 'app-icon', title: app.name, onclick: () => onOpen(app.id) },
-    h('span', { class: 'glyph', style: `--c:${app.color}` }, app.icon),
-    h('span', { class: 'label' }, app.name),
+// What goes inside an icon tile: the app's picture if it has one (e.g. a website's
+// own icon), trying each candidate URL in turn, otherwise its emoji.
+export function iconContent(app) {
+  const sources = [app.image].flat().filter(Boolean);
+  if (!sources.length) return app.icon;
+  const img = h('img', { class: 'icon-img', alt: '', src: sources[0], referrerPolicy: 'no-referrer' });
+  let next = 1;
+  img.addEventListener('error', () => {
+    if (next < sources.length) img.src = sources[next++];
+    else img.replaceWith(app.icon || '🌐');
+  });
+  return img;
+}
+
+export function glyph(app, size = '') {
+  return h('span', { class: `glyph ${size}${app.image ? ' has-img' : ''}`, style: `--c:${app.color}` }, iconContent(app));
+}
+
+export function appIcon(app, onOpen, { locked = false } = {}) {
+  return h('button', {
+    class: `app-icon${locked ? ' locked' : ''}`,
+    title: locked ? `${app.name} (sign in to open)` : app.name,
+    onclick: () => onOpen(app.id),
+  },
+  glyph(app),
+  locked ? h('span', { class: 'lock-badge', 'aria-hidden': 'true' }, '🔒') : null,
+  h('span', { class: 'label' }, app.name),
   );
 }

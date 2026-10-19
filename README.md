@@ -1,4 +1,4 @@
-# Webtop
+# Stephen Dashboard
 
 A personal dashboard that works like a desktop: tap an icon and the app opens in its own window.
 
@@ -16,7 +16,7 @@ A personal dashboard that works like a desktop: tap an icon and the app opens in
 | Clock | Time, date and a stopwatch with laps |
 | Settings | Theme, wallpaper, accent colour, web apps, install, reset |
 
-**Web apps:** in Settings → Web apps you can add any website as its own icon, and it opens inside a window. Some sites (Google, Facebook, banks, …) refuse to be shown inside other pages. For those, use the **Open in tab** button in the window's toolbar.
+**Web apps:** in Settings → Web apps you can add any website. It gets the site's own icon, and it opens inside a window. Some sites (Google, Facebook, banks, …) refuse to be shown inside other pages. For those, use the **Open in tab** button in the window's toolbar.
 
 Data is stored in the browser on each device. Connect **Supabase** to sign in and sync across devices, with the database managed from this GitHub repo. See **[docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md)** for the step-by-step guide.
 
@@ -116,7 +116,7 @@ export default {
 2. Import it and add it to `APPS` in `js/apps/index.js`.
 3. If it stores data, add `supabase/migrations/<timestamp>_habits.sql` (copy `…_tasks.sql` and change the columns), then merge to `main` and GitHub creates the table.
 
-**Requiring sign-in:** add `requiresSignIn: true` next to `name`/`icon`. When someone opens the app while signed out, the dashboard's sign-in dialog appears first, and the app opens once they're signed in. Signing out closes it. Inside the app, `currentUser()` from `js/cloud.js` gives the signed-in user, and the Supabase client from `getClient()` already carries their session, so the one sign-in carries over to every app. (Without Supabase configured, apps open without sign-in.)
+**Sign-in:** every app requires sign-in by default (set in `js/apps/index.js`). Add `requiresSignIn: false` to an app to leave it open, as Settings does. When someone opens an app while signed out, its icon shows a 🔒 and the dashboard's sign-in dialog appears first, and the app opens once they're signed in. Signing out closes it. Inside the app, `currentUser()` from `js/cloud.js` gives the signed-in user, and the Supabase client from `getClient()` already carries their session, so the one sign-in carries over to every app. (Without Supabase configured, apps open without sign-in.)
 
 `ctx` gives you `ctx.open(appId)`, `ctx.close()` and `ctx.setTitle(text)`. Store methods are `all()`, `get(id)`, `upsert(item)`, `remove(id)` and `subscribe(fn)`.
 
@@ -130,4 +130,4 @@ The code is plain web code, so you can wrap it without rewriting anything:
 - **[Capacitor](https://capacitorjs.com/):** wraps the folder as native iOS/Android projects and gives you access to native APIs (notifications, files, camera).
 - **[Tauri](https://tauri.app/) / Electron:** desktop apps for Windows, macOS and Linux.
 
-To rename the dashboard, change "Webtop" in `index.html` and `manifest.webmanifest`.
+To rename the dashboard, change "Stephen Dashboard" in `index.html` and `manifest.webmanifest`.

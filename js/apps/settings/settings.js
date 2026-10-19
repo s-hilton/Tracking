@@ -140,6 +140,7 @@ export default {
   name: 'Settings',
   icon: '⚙️',
   color: '#6366f1',
+  requiresSignIn: false,
   size: { w: 480, h: 600 },
 
   mount(root) {

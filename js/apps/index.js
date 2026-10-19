@@ -7,6 +7,9 @@
 //
 // An entry is either a single app { id, name, icon, color, size, mount(root, ctx) }
 // or a provider { apps() } that returns several (like Web apps, one per saved site).
+//
+// Every app requires sign-in unless it says `requiresSignIn: false` (only Settings does,
+// so you can always reach it).
 import notes from './notes/notes.js';
 import tasks from './tasks/tasks.js';
 import calculator from './calculator/calculator.js';
@@ -16,8 +19,12 @@ import settings from './settings/settings.js';
 
 const APPS = [notes, tasks, calculator, clock, settings, webApps];
 
+const withDefaults = (app) => ('requiresSignIn' in app ? app : { ...app, requiresSignIn: true });
+
 export function getApps() {
-  return APPS.flatMap((entry) => (typeof entry.apps === 'function' ? entry.apps() : [entry]));
+  return APPS
+    .flatMap((entry) => (typeof entry.apps === 'function' ? entry.apps() : [entry]))
+    .map(withDefaults);
 }
 
 export function getApp(id) {

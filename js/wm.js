@@ -1,4 +1,4 @@
-import { h } from './ui.js';
+import { h, iconContent } from './ui.js';
 
 const MIN_W = 280;
 const MIN_H = 180;
@@ -129,7 +129,7 @@ export function createWindowManager({ layer, getApp, onChange }) {
     const body = h('div', { class: 'window-body' });
     const el = h('section', { class: 'window', role: 'dialog', 'aria-label': app.name },
       h('header', { class: 'titlebar' },
-        h('span', { class: 'title-icon' }, app.icon),
+        h('span', { class: 'title-icon' }, iconContent(app)),
         title,
         h('div', { class: 'win-controls' },
           h('button', { 'data-act': 'min', 'aria-label': 'Minimize', title: 'Minimize' }, '–'),

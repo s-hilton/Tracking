@@ -3,7 +3,7 @@
 // Unlike other apps this module provides a *list* of apps (one per saved link)
 // and adds a "Web apps" section to Settings for managing them.
 import { uid } from '../../storage.js';
-import { h, loadStyles } from '../../ui.js';
+import { h, loadStyles, glyph } from '../../ui.js';
 import { createCollection } from '../../cloud.js';
 import { registerSettingsSection } from '../../settings-sections.js';
 
@@ -47,12 +47,27 @@ export function normalizeUrl(input) {
   }
 }
 
+// The website's own icon: its high-resolution home-screen icon if it has one,
+// otherwise the favicon via Google's icon service. Falls back to the emoji if both fail.
+function siteIcons(url) {
+  try {
+    const { origin, hostname } = new URL(url);
+    return [
+      `${origin}/apple-touch-icon.png`,
+      `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=128`,
+    ];
+  } catch {
+    return [];
+  }
+}
+
 // Turns a saved link into an app that shows the website in an iframe.
 function webApp(link) {
   return {
     id: `web:${link.id}`,
     name: link.name,
     icon: link.icon || '🌐',
+    image: siteIcons(link.url),
     color: link.color || '#475569',
     size: { w: 900, h: 600 },
 
@@ -86,7 +101,7 @@ function settingsSection() {
     const all = links();
     list.replaceChildren(all.length
       ? h('ul', { class: 'link-list' }, ...all.map((link) => h('li', {},
-        h('span', { class: 'glyph sm', style: `--c:${link.color}` }, link.icon),
+        glyph(webApp(link), 'sm'),
         h('div', { class: 'link-text' }, h('strong', {}, link.name), h('span', { class: 'muted small' }, link.url)),
         h('button', {
           class: 'icon-btn',
@@ -98,7 +113,6 @@ function settingsSection() {
 
   const name = h('input', { class: 'input', placeholder: 'Name (e.g. Calendar)', required: true, maxLength: 30 });
   const url = h('input', { class: 'input', placeholder: 'Website (e.g. calendar.google.com)', required: true, inputMode: 'url', autocapitalize: 'off' });
-  const icon = h('input', { class: 'input icon-input', placeholder: '🌐', maxLength: 4, 'aria-label': 'Icon (emoji)' });
   const error = h('p', { class: 'error small', hidden: true });
 
   const form = h('form', {
@@ -115,7 +129,7 @@ function settingsSection() {
         id: uid(),
         name: name.value.trim(),
         url: href,
-        icon: icon.value.trim() || '🌐',
+        icon: '🌐', // shown only if the site's own icon can't be loaded
         color: COLORS[store.all().length % COLORS.length],
         created: Date.now(),
       });
@@ -125,7 +139,7 @@ function settingsSection() {
     },
   },
   h('div', { class: 'set-label' }, 'Add a website'),
-  h('div', { class: 'row' }, icon, name),
+  name,
   url,
   error,
   h('button', { class: 'btn primary' }, 'Add to dashboard'));

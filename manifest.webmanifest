@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "Webtop",
-  "short_name": "Webtop",
+  "name": "Stephen Dashboard",
+  "short_name": "Stephen Dashboard",
   "description": "A personal dashboard that opens your apps in windows, like a desktop.",
   "start_url": "./",
   "scope": "./",

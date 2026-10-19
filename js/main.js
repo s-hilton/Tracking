@@ -5,7 +5,7 @@ import { load, save } from './storage.js';
 import { registerPWA } from './pwa.js';
 import { initCloud, needsSignIn, whenAuthReady } from './cloud.js';
 import { initAccount, showSignIn } from './account.js';
-import { h, appIcon } from './ui.js';
+import { h, appIcon, glyph, iconContent } from './ui.js';
 
 applyPrefs();
 registerPWA();
@@ -45,8 +45,10 @@ function closeProtectedApps() {
 }
 
 // ---- Desktop / home screen icons -------------------------------------------
+const icon = (app) => appIcon(app, openApp, { locked: app.requiresSignIn && needsSignIn() });
+
 function renderIcons() {
-  $('#icons').replaceChildren(...getApps().map((app) => appIcon(app, openApp)));
+  $('#icons').replaceChildren(...getApps().map(icon));
 }
 
 // ---- Taskbar ---------------------------------------------------------------
@@ -58,7 +60,7 @@ function renderTaskbar() {
       title: w.app.name,
       onclick: () => wm.toggle(w.id),
     },
-    h('span', { class: 'task-icon' }, w.app.icon),
+    h('span', { class: 'task-icon' }, iconContent(w.app)),
     h('span', { class: 'task-name' }, w.app.name)),
   ));
   const count = $('#switcher-count');
@@ -78,7 +80,7 @@ function renderLauncher() {
   const query = $('#launcher-search').value.trim().toLowerCase();
   const apps = getApps().filter((app) => app.name.toLowerCase().includes(query));
   $('#launcher-grid').replaceChildren(
-    ...(apps.length ? apps.map((app) => appIcon(app, openApp)) : [h('p', { class: 'muted' }, 'No apps found')]),
+    ...(apps.length ? apps.map(icon) : [h('p', { class: 'muted' }, 'No apps found')]),
   );
 }
 
@@ -100,7 +102,7 @@ function renderSwitcher() {
   $('#switcher-list').replaceChildren(...(open.length
     ? open.map((w) => h('div', { class: 'switch-card' },
       h('button', { class: 'switch-open', onclick: () => { hideOverlays(); wm.focus(w.id); } },
-        h('span', { class: 'glyph', style: `--c:${w.app.color}` }, w.app.icon),
+        glyph(w.app),
         h('span', {}, w.app.name)),
       h('button', { class: 'switch-close', 'aria-label': `Close ${w.app.name}`, onclick: () => wm.close(w.id) }, '✕')))
     : [h('p', { class: 'muted' }, 'No open apps')]));
@@ -138,7 +140,10 @@ document.addEventListener('keydown', (event) => { if (event.key === 'Escape') hi
 
 mobileQuery.addEventListener('change', syncMode);
 window.addEventListener('resize', () => wm.fit());
-window.addEventListener('auth-changed', closeProtectedApps);
+window.addEventListener('auth-changed', () => {
+  closeProtectedApps();
+  renderIcons(); // lock badges
+});
 window.addEventListener('apps-changed', () => {
   renderIcons();
   renderLauncher();
@@ -153,4 +158,4 @@ setInterval(tickClock, 10_000);
 // Restore the windows that were open last time.
 for (const saved of load('session', [])) wm.open(saved.appId, saved);
 renderTaskbar();
-whenAuthReady().then(closeProtectedApps);
+whenAuthReady().then(() => { closeProtectedApps(); renderIcons(); });
