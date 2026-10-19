@@ -38,6 +38,8 @@
 .bd-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .bd-toolbar .input[type="search"] { flex: 1 1 220px; }
 .bd-toolbar select.input { width: auto; }
+.bd-quick-add { display: grid; gap: 4px; margin-top: -6px; }
+.bd-quick-note:empty { display: none; }
 .bd-section { display: grid; gap: 8px; }
 .bd-section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .bd-section-head h3 { margin: 0; font-size: 14px; }
