@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Webtop</title>
+  <meta name="description" content="A personal dashboard that opens your apps in windows, like a desktop.">
+  <meta name="theme-color" content="#0b1020">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Webtop">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/styles.css">
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <main id="desktop">
+    <div id="icons" class="icon-grid" aria-label="Apps"></div>
+    <div id="windows"></div>
+  </main>
+
+  <div id="launcher" class="overlay-panel" hidden>
+    <input id="launcher-search" class="input" type="search" placeholder="Search apps…" autocomplete="off">
+    <div id="launcher-grid" class="icon-grid launcher-grid"></div>
+  </div>
+
+  <div id="switcher" class="switcher" hidden>
+    <div id="switcher-list" class="switcher-list"></div>
+  </div>
+
+  <nav id="taskbar" aria-label="Taskbar">
+    <button id="btn-launcher" class="tb-btn" aria-label="All apps" title="All apps">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>
+    </button>
+    <div id="task-list" class="task-list"></div>
+    <button id="btn-home" class="tb-btn mobile-only" aria-label="Home" title="Home">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2.4"/></svg>
+    </button>
+    <button id="btn-switcher" class="tb-btn mobile-only" aria-label="Open apps" title="Open apps">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="2.4"/></svg>
+      <span id="switcher-count" class="badge" hidden></span>
+    </button>
+    <time id="tb-clock" class="tb-clock"></time>
+  </nav>
+</body>
+</html>
