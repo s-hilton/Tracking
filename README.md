@@ -6,6 +6,8 @@ A personal dashboard that works like a desktop: tap an icon and the app opens in
 - **Phone:** you get a home screen of icons. Apps open full screen, and the bottom bar has **All apps**, **Home** and **Open apps** (switcher) buttons.
 - **Installable:** it's a Progressive Web App (PWA), so it can be added to a phone home screen or installed on a computer, opens without browser chrome and keeps working offline.
 
+**To-do sticky note:** the dashboard has a sticky note that gathers what needs doing from every app: Rolodex follow-ups, LOI follow-up tasks and quiet companies, unfinished Tasks. Tick an item to finish it, or tap it to jump straight to it in its app. Tap "To do" to fold the note away.
+
 ## Built-in apps
 
 | App | What it does |
@@ -78,6 +80,8 @@ js/apps/loi-tracker/          the LOIs app (inside Astra Retrieval): Astra Retri
                                 config.js (products, use cases, stages, reminder days), data.js, form.js,
                                 editors.js, views/  ⇄ supabase/migrations/*_lois.sql, *_business_development.sql
 js/folder.js                  createFolder() helper used by folders
+js/todos.js                   the dashboard's to-do sticky note (gathers every app's todos())
+js/intents.js                 open an app at a particular record (used by the sticky note)
 
 supabase/migrations/          database tables, applied by GitHub Actions
 .github/workflows/supabase.yml   the Action that applies them
@@ -86,6 +90,23 @@ supabase/migrations/          database tables, applied by GitHub Actions
 Apps only depend on the shared helpers in `js/` (never on each other).
 
 ## Adding your own app
+
+> **✅ Every new app: hook it into the to-do sticky note.** If the app has anything that
+> needs doing (follow-ups, due dates, overdue items, things waiting on you), add a
+> `todos()` function and fire `badges-changed` when its data changes, so its items show up
+> on the dashboard's sticky note. If it can open at a specific record, handle intents too.
+> See **To-dos on the sticky note** below. If the app truly has nothing to do, say so
+> in a comment next to its definition (`// No todos: …`) so the next person knows it was considered.
+
+**New app checklist**
+
+- [ ] Folder `js/apps/<name>/` with its code and styles, added to `APPS` in `js/apps/index.js`
+- [ ] Migration in `supabase/migrations/` if it stores data
+- [ ] **`todos()` for the sticky note** (or a `// No todos: …` comment), plus `badges-changed` events and `onIntent()` if items should open a record
+- [ ] `badge()` / `reminder()` if it has something urgent
+- [ ] A row in the **Built-in apps** table and the **Project layout** above
+- [ ] Bump `VERSION` in `sw.js`
+
 
 1. Create a folder `js/apps/habits/` with `habits.js` and `habits.css`:
 
@@ -128,6 +149,24 @@ export default {
 3. If it stores data, add `supabase/migrations/<timestamp>_habits.sql` (copy `…_tasks.sql` and change the columns), then merge to `main` and GitHub creates the table.
 
 **Sign-in:** every app requires sign-in by default (set in `js/apps/index.js`). Add `requiresSignIn: false` to an app to leave it open, as Settings does. When someone opens an app while signed out, its icon shows a 🔒 and the dashboard's sign-in dialog appears first, and the app opens once they're signed in. Signing out closes it. Inside the app, `currentUser()` from `js/cloud.js` gives the signed-in user, and the Supabase client from `getClient()` already carries their session, so the one sign-in carries over to every app. (Without Supabase configured, apps open without sign-in.)
+
+**To-dos on the sticky note:** add `todos: () => [...]` to the app. Each item is
+`{ id, text, detail?, tone?: 'overdue' | 'today', open?, done? }`:
+
+- `text` is what to do ("Reach out to Ada Lovelace"); `detail` is the small line under it ("3 days overdue").
+- `tone: 'overdue'` shows the detail in red.
+- `done: () => …` adds a checkbox; ticking it should update the app's data (mark the task done, log the follow-up). Leave it out for items that can't be finished from a list.
+- `open` is passed to the app when the item is tapped. Listen for it in `mount()`:
+
+```js
+import { onIntent } from '../../intents.js';
+// in mount(root, ctx):
+const offIntent = onIntent('habits', (intent) => { if (intent?.habit) showHabit(intent.habit); });
+return () => offIntent();
+```
+
+Keep `todos()` fast and only include things that need doing now (due today or overdue), not everything in the app.
+When the data changes, fire `window.dispatchEvent(new Event('badges-changed'))` (e.g. in a `store.subscribe`) so the note and icon badges refresh. The Rolodex, LOIs and Tasks apps are working examples.
 
 **Badges and reminders:** an app can add `badge: () => number` (a red count on its icon; folders show the total of their apps) and `reminder: () => 'message' | null` (shown as a pop-up once a day when the dashboard opens). The LOIs app uses both for companies needing a follow-up.
 

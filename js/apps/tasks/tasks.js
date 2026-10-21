@@ -15,6 +15,9 @@ const store = createCollection({
   order: { column: 'created_at', ascending: false },
 });
 
+// Let the dashboard (sticky note) know when the list changes.
+store.subscribe(() => window.dispatchEvent(new Event('badges-changed')));
+
 // Tasks saved before sync existed have no `created`; treat them as oldest.
 const sorted = () => [...store.all()].sort((a, b) => (b.created ?? 0) - (a.created ?? 0));
 
@@ -24,6 +27,13 @@ export default {
   icon: '✅',
   color: '#10b981',
   size: { w: 420, h: 520 },
+
+  // On the dashboard's sticky note: everything not done yet, oldest first; tick to finish.
+  todos: () => sorted().filter((t) => !t.done).reverse().map((t) => ({
+    id: t.id,
+    text: t.text,
+    done: () => store.upsert({ ...store.get(t.id) ?? t, done: true }),
+  })),
 
   mount(root) {
     let filter = 'all';
