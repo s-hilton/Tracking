@@ -6,6 +6,7 @@
 //   drum.js       the turning card drum;  faces.js  what's typed on each card
 //   cards.js      the A–Z card file;  contact.js  one pulled-out card
 //   followups.js  who to reach out to;  web.js  the corkboard of connections
+//   map.js + geo.js  everyone pinned where they live
 //   editor.js     add/edit forms;  import.js + vcard.js  iPhone contacts import
 //   export.js     export as .vcf, .csv or a .json backup
 //   widgets.js    sheets, chips, the person picker
@@ -17,6 +18,7 @@ import { cardsView } from './cards.js';
 import { contactPage } from './contact.js';
 import { followUpsPage } from './followups.js';
 import { createWeb } from './web.js';
+import { mapView } from './map.js';
 import { editContact, editConnection } from './editor.js';
 import { importContacts } from './import.js';
 import { exportContacts } from './export.js';
@@ -44,6 +46,8 @@ function homeFace(ctx) {
       option('📇', 'My contacts', `${n} card${n === 1 ? '' : 's'} on file`, () => ctx.go('cards'))),
     h('div', { class: 'rc-more' },
       h('button', { type: 'button', onclick: () => ctx.go('web') }, 'Connection web'),
+      h('span', { 'aria-hidden': 'true' }, '·'),
+      h('button', { type: 'button', onclick: () => ctx.go('map') }, 'Map'),
       h('span', { 'aria-hidden': 'true' }, '·'),
       h('button', { type: 'button', onclick: () => ctx.edit(null) }, 'New card'),
       h('span', { 'aria-hidden': 'true' }, '·'),
@@ -116,6 +120,7 @@ const VIEWS = {
   cards: { label: 'Cards', render: cardsView },
   followups: { label: 'Follow-ups', render: (ctx) => ({ el: followUpsPage(ctx) }), live: true },
   web: { label: 'Web', render: webView },
+  map: { label: 'Map', render: mapView },
   contact: { render: (ctx) => ({ el: contactPage(ctx, ctx.state.contactId) }), live: true },
 };
 
@@ -143,7 +148,7 @@ export default {
 
     const ctx = {
       host: app,
-      state: { view: 'home', cardId: null, contactId: null, query: '' },
+      state: { view: 'home', cardId: null, contactId: null, query: '', mapFocus: null },
       go(view, extra = {}) {
         Object.assign(ctx.state, extra);
         ctx.state.view = view;
@@ -187,7 +192,7 @@ export default {
       bar.hidden = view === 'home';
       bar.replaceChildren(...[
         h('button', { type: 'button', class: 'rdx-plate', title: 'Back to the start', onclick: () => ctx.go('home') }, 'Rolodex'),
-        h('nav', { class: 'rdx-tabs' }, tab('cards', 'Cards'), tab('followups', 'Follow-ups', due), tab('web', 'Web')),
+        h('nav', { class: 'rdx-tabs' }, tab('cards', 'Cards'), tab('followups', 'Follow-ups', due), tab('web', 'Web'), tab('map', 'Map')),
         h('span', { class: 'spacer' }),
         view === 'contact' ? h('button', { type: 'button', class: 'rdx-btn small', onclick: () => ctx.go('cards') }, '← Back to file') : null,
         h('button', { type: 'button', class: 'rdx-btn small', onclick: () => ctx.importFile() }, '⇪ Import'),

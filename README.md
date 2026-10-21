@@ -12,7 +12,7 @@ A personal dashboard that works like a desktop: tap an icon and the app opens in
 | --- | --- |
 | Notes | Write and keep notes |
 | Tasks | To-do list with filters |
-| Rolodex | Your contacts as a turning card file: reach-out reminders, iPhone import, export (.vcf / .csv) and a corkboard of who knows whom |
+| Rolodex | Your contacts as a turning card file: reach-out reminders, iPhone import, export (.vcf / .csv), a corkboard of who knows whom and a map of where everyone lives |
 | Calculator | Basic calculator (keyboard supported) |
 | Clock | Time, date and a stopwatch with laps |
 | Settings | Theme, wallpaper, accent colour, web apps, install, reset |
@@ -67,8 +67,9 @@ js/apps/tasks/                tasks.js, tasks.css        ⇄ supabase/migrations
 js/apps/web-apps/             web-apps.js, web-apps.css  ⇄ supabase/migrations/*_web_apps.sql
 js/apps/rolodex/              rolodex.js (entry), drum.js (the turning card file), cards.js, contact.js,
                                 followups.js, web.js (connection corkboard), editor.js, import.js + vcard.js
-                                (iPhone .vcf / .csv import), export.js, config.js (quick-tap choices)
-                                ⇄ supabase/migrations/*_rolodex.sql
+                                (iPhone .vcf / .csv import), export.js, map.js + geo.js (map, places looked
+                                up on OpenStreetMap), config.js (quick-tap choices)
+                                ⇄ supabase/migrations/*_rolodex*.sql
 js/apps/calculator/           calculator.js, calculator.css   (no data)
 js/apps/clock/                clock.js, clock.css             (no data)
 js/apps/settings/             settings.js, settings.css

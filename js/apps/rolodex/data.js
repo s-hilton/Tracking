@@ -10,6 +10,7 @@ const KINDS = {
   ts: [(v) => (v == null ? null : new Date(v).toISOString()), (v) => (v ? Date.parse(v) : null)],
   num: [(v) => (v === '' || v == null || Number.isNaN(Number(v)) ? null : Number(v)), (v) => (v == null ? 0 : Number(v))],
   list: [(v) => v ?? [], (v) => v ?? []],
+  coord: [(v) => (typeof v === 'number' && Number.isFinite(v) ? v : null), (v) => (v == null ? null : Number(v))],
 };
 
 const TIMESTAMPS = { created: ['created_at', 'ts'], updated: ['updated_at', 'ts'] };
@@ -51,6 +52,10 @@ export const contacts = define('rolodex_contacts', 'rolodex:contacts', {
   followUpOn: ['follow_up_on', 'date'],
   lastContacted: ['last_contacted', 'date'],
   cadenceDays: ['cadence_days', 'num'],
+  // Where "Lives in" is on the map, and which text that was looked up from.
+  lat: ['lat', 'coord'],
+  lng: ['lng', 'coord'],
+  geoFor: ['geo_for', 'text'],
 });
 
 // Who knows whom: one row per pair of cards (a, b order doesn't matter).
@@ -189,7 +194,7 @@ export function newContact(fields = {}) {
     emails: [], phones: [], linkedin: '', urls: [], location: '', birthday: '',
     whereMetTags: [], whereMet: '', metOn: '', similarities: '', hopingForTags: [], hopingFor: '',
     extraInfo: '', tags: '', closeness: '', introducedBy: '', introNote: '',
-    followUpOn: '', lastContacted: '', cadenceDays: 0, created: now, updated: now, ...fields,
+    followUpOn: '', lastContacted: '', cadenceDays: 0, lat: null, lng: null, geoFor: '', created: now, updated: now, ...fields,
   };
 }
 
