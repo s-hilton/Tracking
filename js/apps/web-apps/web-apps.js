@@ -160,6 +160,7 @@ function settingsSection() {
 
 registerSettingsSection({ title: 'Web apps', order: 20, render: settingsSection });
 
+// No todos: opens other websites, nothing to track (see README → To-dos on the sticky note).
 export default {
   apps: () => links().map(webApp),
 };

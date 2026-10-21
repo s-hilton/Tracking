@@ -10,9 +10,11 @@
 //   analytics.js  conversion, velocity and trend calculations (date-filtered)
 //   views/      one file per tab (charts.js: the small chart kit)
 import { h, loadStyles } from '../../ui.js';
+import { onIntent } from '../../intents.js';
 import { load, save } from '../../storage.js';
 import { STALE_DAYS, PRODUCTS } from './config.js';
-import { STORES, staleCompanies, openTasks, todayIso, migrateLegacyLocalData } from './data.js';
+import { STORES, staleCompanies, openTasks, todayIso, daysUntil, companyName, migrateLegacyLocalData } from './data.js';
+import { completeTask } from './editors.js';
 import { downloadFile } from './views/common.js';
 import { overview } from './views/overview.js';
 import { companyList, companyPage } from './views/companies.js';
@@ -86,6 +88,30 @@ export default {
   // Red number on the icon: companies needing a follow-up.
   badge: () => staleCompanies().length,
 
+  // On the dashboard's sticky note: follow-up tasks due today or overdue (tick to
+  // complete), then companies that have gone quiet.
+  todos: () => [
+    ...openTasks().filter((t) => t.dueOn && t.dueOn <= todayIso())
+      .sort((a, b) => a.dueOn.localeCompare(b.dueOn))
+      .map((t) => {
+        const days = -daysUntil(t.dueOn);
+        return {
+          id: `task:${t.id}`,
+          text: t.title || 'Follow-up task',
+          detail: [t.companyId ? companyName(t.companyId) : '', days > 0 ? `${days} day${days === 1 ? '' : 's'} overdue` : 'today'].filter(Boolean).join(' · '),
+          tone: days > 0 ? 'overdue' : 'today',
+          open: { tab: 'followups' },
+          done: () => completeTask(t),
+        };
+      }),
+    ...staleCompanies().map(({ company, last }) => ({
+      id: `stale:${company.id}`,
+      text: `Follow up with ${company.name || 'a company'}`,
+      detail: last ? `no update in ${Math.floor((Date.now() - last) / 86400000)} days` : 'no updates yet',
+      open: { company: company.id },
+    })),
+  ],
+
   // Shown once a day when the dashboard opens.
   reminder: () => {
     const n = staleCompanies().length;
@@ -151,10 +177,16 @@ export default {
     const scheduleRender = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(render); };
     const unsubscribes = STORES.map((store) => store.subscribe(scheduleRender));
 
+    // Opened from the dashboard's sticky note: go straight to that company or tab.
+    const offIntent = onIntent('loi-tracker', (intent) => {
+      if (intent?.company) ctx.go('company', { companyId: intent.company });
+      else if (TABS[intent?.tab]) ctx.go(intent.tab);
+    });
+
     app.append(nav, content);
     root.append(app);
     render();
 
-    return () => unsubscribes.forEach((off) => off());
+    return () => { offIntent(); unsubscribes.forEach((off) => off()); };
   },
 };

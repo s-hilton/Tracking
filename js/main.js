@@ -6,6 +6,8 @@ import { registerPWA } from './pwa.js';
 import { initCloud, needsSignIn, whenAuthReady } from './cloud.js';
 import { initAccount, showSignIn } from './account.js';
 import { h, appIcon, glyph, iconContent } from './ui.js';
+import { createStickyNote } from './todos.js';
+import { sendIntent } from './intents.js';
 
 applyPrefs();
 registerPWA();
@@ -26,17 +28,19 @@ const wm = createWindowManager({
 
 // Apps with `requiresSignIn: true` ask for the dashboard sign-in first,
 // then open automatically once signed in.
-async function openApp(appId) {
+// `intent` (optional) asks the app to show something particular; see js/intents.js.
+async function openApp(appId, intent) {
   hideOverlays();
   const app = getApp(appId);
+  const open = () => { wm.open(appId); if (intent) sendIntent(appId, intent); };
   if (app?.requiresSignIn) {
     await whenAuthReady();
     if (needsSignIn()) {
-      showSignIn({ reason: `Sign in to open ${app.name}.`, then: () => wm.open(appId) });
+      showSignIn({ reason: `Sign in to open ${app.name}.`, then: open });
       return;
     }
   }
-  wm.open(appId);
+  open();
 }
 
 // Signed out (or never signed in): close apps that need an account.
@@ -52,11 +56,15 @@ function badgeOf(app) {
   try { return app.badge?.() ?? 0; } catch { return 0; }
 }
 
-const icon = (app) => appIcon(app, openApp, { locked: app.requiresSignIn && needsSignIn(), badge: badgeOf(app) });
+const icon = (app) => appIcon(app, (id) => openApp(id), { locked: app.requiresSignIn && needsSignIn(), badge: badgeOf(app) });
 
 function renderIcons() {
   $('#icons').replaceChildren(...getDesktopApps().map(icon));
 }
+
+// ---- Sticky note: to-dos gathered from every app (see js/todos.js) ---------------
+const sticky = createStickyNote({ getApps, openApp });
+$('#desktop').prepend(sticky.el);
 
 // ---- Daily reminders ----------------------------------------------------------
 // Apps can return a message from `reminder()`; it's shown once a day per app.
@@ -199,4 +207,4 @@ setInterval(tickClock, 10_000);
 // Restore the windows that were open last time.
 for (const saved of load('session', [])) wm.open(saved.appId, saved);
 renderTaskbar();
-whenAuthReady().then(() => { closeProtectedApps(); renderIcons(); checkReminders(); });
+whenAuthReady().then(() => { closeProtectedApps(); renderIcons(); checkReminders(); sticky.refresh(); });

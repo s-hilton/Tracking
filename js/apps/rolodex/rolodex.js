@@ -11,7 +11,8 @@
 //   export.js     export as .vcf, .csv or a .json backup
 //   widgets.js    sheets, chips, the person picker
 import { h, loadStyles } from '../../ui.js';
-import { STORES, contacts, dueCount } from './data.js';
+import { onIntent } from '../../intents.js';
+import { STORES, contacts, dueCount, followUpList, displayName, logTouch } from './data.js';
 import { createDrum } from './drum.js';
 import { personFace, dividerFace, blankFace, backFace } from './faces.js';
 import { cardsView } from './cards.js';
@@ -133,6 +134,17 @@ export default {
 
   badge: () => dueCount(),
 
+  // On the dashboard's sticky note: everyone due a reach-out. Ticking one off is
+  // the same as "I reached out" on the follow-up list.
+  todos: () => followUpList().filter((x) => x.days <= 0).map(({ contact: c, days }) => ({
+    id: c.id,
+    text: `Reach out to ${displayName(c)}`,
+    detail: days < 0 ? `${-days} day${days === -1 ? '' : 's'} overdue` : 'today',
+    tone: days < 0 ? 'overdue' : 'today',
+    open: { contact: c.id },
+    done: () => logTouch(contacts.get(c.id) ?? c),
+  })),
+
   reminder: () => {
     const n = dueCount();
     return n ? `${n} ${n === 1 ? 'person is' : 'people are'} due a follow-up in your Rolodex.` : null;
@@ -236,11 +248,17 @@ export default {
     }).observe(app, { childList: true });
     const offs = STORES.map((store) => store.subscribe(changed));
 
+    // Opened from the dashboard's sticky note: go straight to that card or page.
+    const offIntent = onIntent('rolodex', (intent) => {
+      if (intent?.contact && contacts.get(intent.contact)) ctx.openContact(intent.contact);
+      else if (intent?.view in VIEWS) ctx.go(intent.view);
+    });
+
     app.append(bar, main, toasts);
     root.append(app);
     render();
 
-    return () => { current?.destroy?.(); leave.forEach((fn) => fn()); offs.forEach((off) => off()); cancelAnimationFrame(frame); };
+    return () => { offIntent(); current?.destroy?.(); leave.forEach((fn) => fn()); offs.forEach((off) => off()); cancelAnimationFrame(frame); };
   },
 };
 

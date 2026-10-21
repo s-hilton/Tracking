@@ -135,6 +135,7 @@ function extraSection({ title, render }) {
   };
 }
 
+// No todos: settings only (see README → To-dos on the sticky note).
 export default {
   id: 'settings',
   name: 'Settings',

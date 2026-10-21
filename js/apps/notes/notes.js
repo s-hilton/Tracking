@@ -21,6 +21,7 @@ const store = createCollection({
 
 const sorted = () => [...store.all()].sort((a, b) => b.updated - a.updated);
 
+// No todos: notes are reference, nothing is due (see README → To-dos on the sticky note).
 export default {
   id: 'notes',
   name: 'Notes',

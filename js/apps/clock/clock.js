@@ -14,6 +14,7 @@ function formatElapsed(ms) {
   return `${hrs ? `${hrs}:` : ''}${pad(m)}:${pad(s)}.${pad(cs)}`;
 }
 
+// No todos: a tool, nothing to track (see README → To-dos on the sticky note).
 export default {
   id: 'clock',
   name: 'Clock',

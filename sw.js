@@ -1,6 +1,6 @@
 // Offline support: always fetch the latest files, fall back to the cache when offline.
 // Bump VERSION when you deploy so old caches are cleaned up.
-const VERSION = 'v19';
+const VERSION = 'v20';
 const CACHE = `webtop-${VERSION}`;
 
 // Core files are cached up front; app files (js/apps/**) are cached the
@@ -20,6 +20,8 @@ const SHELL = [
   'js/cloud.js',
   'js/settings-sections.js',
   'js/account.js',
+  'js/todos.js',
+  'js/intents.js',
   'js/apps/index.js',
   'icons/icon.svg',
   'icons/icon-192.png',

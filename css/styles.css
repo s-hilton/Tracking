@@ -593,3 +593,63 @@ body.mobile .overlay-panel {
 .toast-icon .icon-img { width: 28px; height: 28px; }
 .toast-text { flex: 1; display: grid; gap: 2px; font-size: 13px; }
 body.mobile .toast { left: 16px; right: 16px; width: auto; }
+
+/* ---- Sticky note: to-dos from every app (js/todos.js) ---------------------------- */
+.sticky-note {
+  --note-ink: #2f2a1d;
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  z-index: 0;
+  width: 290px;
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+  padding: 18px 16px 14px;
+  color: var(--note-ink);
+  font-family: "Bradley Hand", "Segoe Print", "Chalkboard SE", "Comic Neue", "Marker Felt", cursive;
+  background:
+    linear-gradient(transparent 0 calc(100% - 1px), rgba(120, 90, 20, 0.08) 0) 0 54px / 100% 26px,
+    linear-gradient(160deg, #fff59d, #fde68a 55%, #fcd96a);
+  border-radius: 2px 2px 3px 18px / 2px 2px 3px 6px;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.15), 0 12px 22px -6px rgba(0, 0, 0, 0.45);
+  transform: rotate(1.2deg);
+  scrollbar-width: thin;
+}
+.sticky-note::before { /* a strip of tape holding it up */
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  width: 92px;
+  height: 22px;
+  transform: translateX(-50%) rotate(-3deg);
+  background: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+.sticky-note.collapsed { padding-bottom: 10px; }
+.sticky-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding-bottom: 6px; border-bottom: 2px solid rgba(190, 60, 40, 0.45); }
+.sticky-title { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; font-family: inherit; font-size: 21px; font-weight: 700; line-height: 1.1; color: inherit; }
+.sticky-count { min-width: 20px; padding: 1px 6px; border-radius: 10px; font: 700 11px/1.5 system-ui, sans-serif; text-align: center; color: #fff; background: #c0392b; }
+.sticky-caret { font-size: 13px; opacity: 0.6; }
+.sticky-date { font-size: 13px; opacity: 0.7; white-space: nowrap; }
+.sticky-group { margin-top: 10px; }
+.sticky-group h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 2px; font: 700 13px/1.3 system-ui, sans-serif; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.65; }
+.sticky-app-icon { display: inline-flex; width: 16px; height: 16px; align-items: center; justify-content: center; font-size: 13px; }
+.sticky-app-icon .icon-img { width: 16px; height: 16px; object-fit: contain; border-radius: 3px; }
+.sticky-group ul { list-style: none; margin: 0; padding: 0; }
+.sticky-item { display: flex; align-items: flex-start; gap: 7px; padding: 3px 0; transition: opacity 0.3s; }
+.sticky-item input { flex-shrink: 0; width: 16px; height: 16px; margin: 4px 0 0; accent-color: #7c2d12; cursor: pointer; }
+.sticky-bullet { width: 16px; text-align: center; line-height: 24px; opacity: 0.6; flex-shrink: 0; }
+.sticky-text { display: grid; min-width: 0; padding: 0; border: 0; background: none; font-family: inherit; font-size: 17px; line-height: 1.35; text-align: left; color: inherit; cursor: pointer; }
+.sticky-text:hover > span:first-child { text-decoration: underline; text-decoration-color: rgba(0, 0, 0, 0.3); }
+.sticky-text > span:first-child { overflow-wrap: anywhere; }
+.sticky-detail { font-size: 13.5px; opacity: 0.65; }
+.sticky-item.overdue .sticky-detail { color: #b42318; opacity: 1; }
+.sticky-item.ticked { opacity: 0.4; }
+.sticky-item.ticked .sticky-text > span:first-child { text-decoration: line-through; }
+.sticky-more { margin: 2px 0 0 23px; padding: 0; border: 0; background: none; font-family: inherit; font-size: 14px; color: #7c2d12; text-decoration: underline dotted; }
+.sticky-empty { margin: 12px 0 2px; font-size: 18px; opacity: 0.75; }
+
+body.mobile #desktop { display: flex; flex-direction: column; }
+body.mobile .sticky-note { position: relative; top: auto; right: auto; flex-shrink: 0; width: auto; max-height: 42%; margin: 18px 14px 0; transform: rotate(-0.6deg); }
+body.mobile #icons { flex: 1; min-height: 0; height: auto; }
