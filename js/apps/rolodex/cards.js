@@ -2,7 +2,7 @@
 // or the same cards laid out as a list (the tabs on the side switch between them).
 import { h } from '../../ui.js';
 import { load as loadPref, save as savePref } from '../../storage.js';
-import { contacts, sortedContacts, letterOf, matches, fileName, nextFollowUp, todayIso } from './data.js';
+import { contacts, sortedContacts, letterOf, matches, fileName, displayName, nextFollowUp, todayIso, removeContact } from './data.js';
 import { dueText } from './contact.js';
 import { createDrum } from './drum.js';
 import { personFace, dividerFace, blankFace, backFace, LETTERS } from './faces.js';
@@ -35,13 +35,25 @@ const emptyFace = (ctx) => h('div', { class: 'rc rc-home' },
 function listRow(ctx, c) {
   const due = nextFollowUp(c);
   const overdue = due && due <= todayIso();
-  return h('li', {},
+  const name = displayName(c);
+  return h('li', { class: 'rdx-ledger-item' },
     h('button', { type: 'button', class: 'rdx-ledger-row', onclick: () => ctx.openContact(c.id) },
       h('span', { class: 'rdx-ledger-name' }, fileName(c), overdue ? h('span', { class: 'rc-stamp' }, 'Follow up') : null),
       h('span', { class: 'rdx-ledger-work' }, [c.title, c.company].filter(Boolean).join(', ')),
       h('span', { class: 'rdx-ledger-phone' }, c.phones?.[0]?.value ?? ''),
       h('span', { class: 'rdx-ledger-email' }, c.emails?.[0]?.value ?? ''),
-      h('span', { class: `rdx-ledger-due${overdue ? ' over' : ''}` }, due ? dueText(due) : '')));
+      h('span', { class: `rdx-ledger-due${overdue ? ' over' : ''}` }, due ? dueText(due) : '')),
+    h('button', {
+      type: 'button',
+      class: 'rdx-ledger-delete',
+      'aria-label': `Delete ${name}`,
+      title: `Delete ${name}`,
+      onclick: () => {
+        if (!confirm(`Are you sure you want to delete "${name}"?\n\nTheir connections will be removed too.`)) return;
+        removeContact(c.id);
+        ctx.toast(`Deleted ${name}.`);
+      },
+    }, '🗑'));
 }
 
 export function cardsView(ctx) {
