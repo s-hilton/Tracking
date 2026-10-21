@@ -4,7 +4,8 @@ import { WHERE_MET, HOPING_FOR, CLOSENESS, CADENCES, RELATIONS, ME } from './con
 import { contacts, connections, displayName, newContact, removeContact, saveConnection, findEdge } from './data.js';
 import { openSheet, chips, personPicker, multiRows, field, group, section, textInput, textArea } from './widgets.js';
 
-export function editContact(host, id, { onSaved, prefill } = {}) {
+// `focus` names a form section ('How we met', …) to scroll to and start typing in.
+export function editContact(host, id, { onSaved, prefill, focus } = {}) {
   const existing = id ? contacts.get(id) : null;
   const v = JSON.parse(JSON.stringify(existing ?? newContact(prefill)));
   const set = (key) => (value) => { v[key] = value; };
@@ -78,6 +79,13 @@ export function editContact(host, id, { onSaved, prefill } = {}) {
   ].filter(Boolean);
 
   const sheet = openSheet(host, { title: existing ? displayName(existing) : 'New card', tab: existing ? 'Edit' : 'New', body, actions, wide: true });
+  const target = focus && [...body.querySelectorAll('.rdx-section')].find((el) => el.dataset.section === focus);
+  if (target) {
+    setTimeout(() => {
+      target.scrollIntoView({ block: 'start' });
+      target.querySelector('textarea, input:not([type=checkbox])')?.focus({ preventScroll: true });
+    }, 60);
+  }
 }
 
 // How two people know each other. `from` is the card you started on; `to` may be

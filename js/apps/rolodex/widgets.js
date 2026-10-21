@@ -131,7 +131,7 @@ export const field = (label, control, { wide = false, hint } = {}) => h('label',
 export const group = (label, control, { hint } = {}) => h('div', { class: 'rdx-field wide' },
   h('span', { class: 'rdx-field-label' }, label), control, hint ? h('span', { class: 'rdx-dim small' }, hint) : null);
 
-export const section = (title, ...children) => h('fieldset', { class: 'rdx-section' }, h('legend', {}, title), h('div', { class: 'rdx-grid' }, ...children));
+export const section = (title, ...children) => h('fieldset', { class: 'rdx-section', 'data-section': title }, h('legend', {}, title), h('div', { class: 'rdx-grid' }, ...children));
 
 export function textInput(value, onInput, props = {}) {
   return h('input', { class: 'rdx-input', value: value ?? '', oninput: (e) => onInput(e.target.value), ...props });

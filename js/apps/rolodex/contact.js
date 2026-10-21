@@ -25,7 +25,10 @@ const link = (href, text) => {
 const blank = (text) => h('p', { class: 'rdx-blank' }, text);
 const ink = (text) => h('p', { class: 'rdx-ink' }, text);
 const tags = (list) => (list?.length ? h('div', { class: 'rdx-tags' }, ...list.map((t) => h('span', { class: 'rdx-tag' }, t))) : null);
-const block = (title, ...content) => h('section', { class: 'rdx-block' }, h('h3', {}, title), ...content.filter(Boolean));
+// A section of the card; `onEdit` adds a pencil that opens the form at that part.
+const block = (title, onEdit, ...content) => h('section', { class: 'rdx-block' },
+  h('h3', {}, title, onEdit ? h('button', { type: 'button', class: 'rdx-edit', 'aria-label': `Edit ${title.toLowerCase()}`, title: `Edit ${title.toLowerCase()}`, onclick: onEdit }, '✎ Edit') : null),
+  ...content.filter(Boolean));
 
 export function contactPage(ctx, id) {
   const c = contacts.get(id);
@@ -35,6 +38,7 @@ export function contactPage(ctx, id) {
   const nameOf = (pid) => (pid === ME ? 'You' : displayName(contacts.get(pid)));
   const person = (pid) => (contacts.get(pid) ? h('button', { class: 'rdx-name-link', onclick: () => ctx.openContact(pid) }, displayName(contacts.get(pid))) : h('span', {}, nameOf(pid)));
   const overdue = due && due <= todayIso();
+  const editAt = (section) => () => ctx.edit(c.id, { focus: section });
 
   const reach = [
     ...(c.phones ?? []).map((p) => h('li', {}, h('span', { class: 'rdx-k' }, p.label || 'Phone'), link(`tel:${p.value.replace(/[^\d+]/g, '')}`, p.value))),
@@ -57,7 +61,8 @@ export function contactPage(ctx, id) {
       h('header', { class: 'rdx-bigcard-head' },
         h('div', {},
           h('h2', { class: 'rdx-typed' }, displayName(c), c.nickname ? h('span', { class: 'rdx-dim' }, ` “${c.nickname}”`) : null),
-          c.title || c.company ? h('p', { class: 'rdx-typed sub' }, [c.title, c.company].filter(Boolean).join(' · ')) : null),
+          c.title || c.company ? h('p', { class: 'rdx-typed sub' }, [c.title, c.company].filter(Boolean).join(' · ')) : null,
+          h('button', { type: 'button', class: 'rdx-edit', onclick: editAt('Name & work') }, '✎ Edit name & work')),
         c.closeness ? h('span', { class: 'rdx-stamp blue' }, CLOSENESS[c.closeness] ?? c.closeness) : null,
         overdue ? h('span', { class: 'rdx-stamp' }, 'Follow up') : null),
       h('div', { class: 'rdx-actions' },
@@ -66,8 +71,8 @@ export function contactPage(ctx, id) {
         h('button', { class: 'rdx-btn', onclick: () => ctx.connect(c.id) }, '＋ Who they know')),
 
       h('div', { class: 'rdx-columns' },
-        block('Reach', reach.length ? h('ul', { class: 'rdx-list' }, ...reach) : blank('No phone or email yet.')),
-        block('Follow-up',
+        block('Reach', editAt('Reaching them'), reach.length ? h('ul', { class: 'rdx-list' }, ...reach) : blank('No phone or email yet.')),
+        block('Follow-up', editAt('Follow-up'),
           h('p', { class: overdue ? 'rdx-due over' : 'rdx-due' }, due ? `Next: ${dueText(due)}` : 'No follow-up planned.'),
           h('label', { class: 'rdx-row small' }, 'Remind me', cadenceSelect(c, (days) => setCadence(contacts.get(c.id), days))),
           c.lastContacted ? h('p', { class: 'rdx-dim small' }, `Last reached out ${prettyDate(c.lastContacted)}`) : null,
@@ -77,16 +82,20 @@ export function contactPage(ctx, id) {
             dateInput,
             c.followUpOn ? h('button', { type: 'button', class: 'rdx-chip', onclick: () => setFollow('') }, 'Clear') : null)),
 
-        block('How we met',
+        block('How we met', editAt('How we met'),
           tags(c.whereMetTags),
           c.whereMet ? ink(c.whereMet) : null,
           c.metOn ? h('p', { class: 'rdx-dim small' }, `Met ${prettyDate(c.metOn)}`) : null,
           introducedBy ? h('p', {}, 'Introduced by ', person(introducedBy.id), c.introNote ? h('span', { class: 'rdx-ink inline' }, ` (${c.introNote})`) : null) : null,
           !c.whereMetTags?.length && !c.whereMet && !introducedBy ? blank('Where did you meet? Tap Edit to add the story.') : null),
-        block('Common ground', c.similarities ? ink(c.similarities) : blank('What do you have in common?')),
-        block('What I’m hoping for', tags(c.hopingForTags), c.hopingFor ? ink(c.hopingFor) : null,
+        block('Common ground', editAt('Common ground'), c.similarities ? ink(c.similarities) : blank('What do you have in common?')),
+        block('What I’m hoping for', editAt('What I’m hoping for'), tags(c.hopingForTags), c.hopingFor ? ink(c.hopingFor) : null,
           !c.hopingForTags?.length && !c.hopingFor ? blank('What would you like from this relationship?') : null),
-        c.extraInfo || c.tags ? block('Extra info', c.extraInfo ? ink(c.extraInfo) : null, c.tags ? tags(c.tags.split(',').map((t) => t.trim()).filter(Boolean)) : null) : null),
+        block('Relationship', editAt('Relationship'),
+          c.closeness ? h('p', { class: 'rdx-typed' }, CLOSENESS[c.closeness] ?? c.closeness) : null,
+          c.tags ? tags(c.tags.split(',').map((t) => t.trim()).filter(Boolean)) : null,
+          !c.closeness && !c.tags ? blank('How close are you? Any tags?') : null),
+        block('Extra info', editAt('Extra info'), c.extraInfo ? ink(c.extraInfo) : blank('Anything else worth remembering.'))),
 
       h('section', { class: 'rdx-block rdx-connections' },
         h('h3', {}, 'Connections'),
