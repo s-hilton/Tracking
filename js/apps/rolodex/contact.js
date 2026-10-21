@@ -45,7 +45,8 @@ export function contactPage(ctx, id) {
     ...(c.emails ?? []).map((e) => h('li', {}, h('span', { class: 'rdx-k' }, e.label || 'Email'), link(`mailto:${e.value}`, e.value))),
     c.linkedin ? h('li', {}, h('span', { class: 'rdx-k' }, 'LinkedIn'), link(c.linkedin, c.linkedin.replace(/^https?:\/\/(www\.)?/, ''))) : null,
     ...(c.urls ?? []).map((u) => h('li', {}, h('span', { class: 'rdx-k' }, u.label || 'Link'), link(u.value, u.value.replace(/^https?:\/\/(www\.)?/, '')))),
-    c.location ? h('li', {}, h('span', { class: 'rdx-k' }, 'Lives in'), h('span', {}, c.location)) : null,
+    c.location ? h('li', {}, h('span', { class: 'rdx-k' }, 'Lives in'), h('span', {}, c.location, ' ',
+      h('button', { type: 'button', class: 'rdx-edit', onclick: () => ctx.go('map', { mapFocus: c.id }) }, '📍 Show on map'))) : null,
     c.birthday ? h('li', {}, h('span', { class: 'rdx-k' }, 'Birthday'), h('span', {}, c.birthday)) : null,
   ].filter(Boolean);
 
