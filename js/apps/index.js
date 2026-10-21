@@ -18,8 +18,9 @@ import webApps from './web-apps/web-apps.js';
 import settings from './settings/settings.js';
 import astraRetrieval from './astra-retrieval/astra-retrieval.js';
 import loiTracker from './loi-tracker/loi-tracker.js';
+import rolodex from './rolodex/rolodex.js';
 
-const APPS = [notes, tasks, calculator, clock, settings, astraRetrieval, loiTracker, webApps];
+const APPS = [notes, tasks, rolodex, calculator, clock, settings, astraRetrieval, loiTracker, webApps];
 
 const withDefaults = (app) => ('requiresSignIn' in app ? app : { ...app, requiresSignIn: true });
 
