@@ -7,6 +7,7 @@
 //   cards.js      the A–Z card file;  contact.js  one pulled-out card
 //   followups.js  who to reach out to;  web.js  the corkboard of connections
 //   editor.js     add/edit forms;  import.js + vcard.js  iPhone contacts import
+//   export.js     export as .vcf, .csv or a .json backup
 //   widgets.js    sheets, chips, the person picker
 import { h, loadStyles } from '../../ui.js';
 import { STORES, contacts, dueCount } from './data.js';
@@ -18,6 +19,7 @@ import { followUpsPage } from './followups.js';
 import { createWeb } from './web.js';
 import { editContact, editConnection } from './editor.js';
 import { importContacts } from './import.js';
+import { exportContacts } from './export.js';
 
 loadStyles(new URL('./rolodex.css', import.meta.url));
 
@@ -45,7 +47,9 @@ function homeFace(ctx) {
       h('span', { 'aria-hidden': 'true' }, '·'),
       h('button', { type: 'button', onclick: () => ctx.edit(null) }, 'New card'),
       h('span', { 'aria-hidden': 'true' }, '·'),
-      h('button', { type: 'button', onclick: () => ctx.importFile() }, 'Import')));
+      h('button', { type: 'button', onclick: () => ctx.importFile() }, 'Import'),
+      h('span', { 'aria-hidden': 'true' }, '·'),
+      h('button', { type: 'button', onclick: () => exportContacts(ctx.host, { toast: ctx.toast }) }, 'Export')));
 }
 
 // The cards that whirl past before landing: your own cards if you have them,
@@ -138,6 +142,7 @@ export default {
     let leave = [];
 
     const ctx = {
+      host: app,
       state: { view: 'home', cardId: null, contactId: null, query: '' },
       go(view, extra = {}) {
         Object.assign(ctx.state, extra);
@@ -186,6 +191,7 @@ export default {
         h('span', { class: 'spacer' }),
         view === 'contact' ? h('button', { type: 'button', class: 'rdx-btn small', onclick: () => ctx.go('cards') }, '← Back to file') : null,
         h('button', { type: 'button', class: 'rdx-btn small', onclick: () => ctx.importFile() }, '⇪ Import'),
+        h('button', { type: 'button', class: 'rdx-btn small', onclick: () => exportContacts(app, { toast: ctx.toast }) }, '⇩ Export'),
         h('button', { type: 'button', class: 'rdx-btn small primary', onclick: () => ctx.edit(null) }, '＋ New card'),
       ].filter(Boolean));
     }

@@ -41,9 +41,11 @@ export function editContact(host, id, { onSaved, prefill } = {}) {
       group('How close', chips(CLOSENESS, { value: v.closeness, onChange: set('closeness') })),
       field('Tags', textInput(v.tags, set('tags'), { placeholder: 'golf, AI, Boston' }), { wide: true })),
     section('Follow-up',
-      group('Keep in touch', chips(CADENCES, { value: v.cadenceDays ?? 0, onChange: (d) => { v.cadenceDays = Number(d); } })),
-      field('Next follow-up', textInput(v.followUpOn, set('followUpOn'), { type: 'date' }), { hint: 'Overrides the cadence once.' }),
-      field('Last in touch', textInput(v.lastContacted, set('lastContacted'), { type: 'date' }))),
+      group('How often to reach out', chips(CADENCES, { value: v.cadenceDays ?? 0, onChange: (d) => { v.cadenceDays = Number(d); } }), {
+        hint: 'When you mark them as reached out, they come back on your follow-up list after this long.',
+      }),
+      field('Next follow-up', textInput(v.followUpOn, set('followUpOn'), { type: 'date' }), { hint: 'Optional: a one-off date that comes first.' }),
+      field('Last reached out', textInput(v.lastContacted, set('lastContacted'), { type: 'date' }))),
     section('Extra info',
       field('Anything else', textArea(v.extraInfo, set('extraInfo'), { rows: 4, placeholder: 'Kids’ names, favourite coffee order, what they’re working on…' }), { wide: true })),
     error);

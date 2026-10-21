@@ -145,6 +145,8 @@
 textarea.rdx-input { resize: vertical; font-family: var(--hand); font-size: 16px; line-height: 26px; padding-top: 2px; background-image: repeating-linear-gradient(transparent 0 25px, var(--rule) 25px 26px); border-bottom: 0; }
 textarea.rdx-input:focus { background-color: rgba(64, 116, 186, 0.04); }
 .rdx-input.small { width: auto; font-size: 13px; padding: 3px 2px; }
+.rdx-select { cursor: pointer; padding-right: 4px; }
+.rdx-select option { color: var(--type); background: #fffdf6; }
 
 .rdx-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .rdx-chip {
@@ -569,6 +571,12 @@ textarea.rdx-input:focus { background-color: rgba(64, 116, 186, 0.04); }
 .rdx-import-name { font: 700 14px var(--typewriter); }
 .rdx-import-row.dupe .rdx-import-name { color: rgba(43, 38, 32, 0.65); }
 
+.rdx-export { display: grid; gap: 10px; }
+.rdx-export-opt { display: flex; gap: 14px; align-items: center; padding: 12px 14px; border: 1.5px dashed rgba(31, 58, 122, 0.4); border-radius: 6px; font-family: var(--typewriter); text-align: left; color: var(--type); background: rgba(255, 255, 255, 0.5); }
+.rdx-export-opt:hover:not(:disabled) { border-style: solid; border-color: var(--ink); background: #fff; }
+.rdx-export-opt:disabled { opacity: 0.5; cursor: default; }
+.rdx-export-opt > span:last-child { display: grid; gap: 2px; }
+.rdx-export-icon { font-size: 26px; }
 .rdx-toasts { position: absolute; left: 0; right: 0; bottom: 16px; z-index: 20; display: grid; justify-items: center; gap: 6px; pointer-events: none; }
 .rdx-toast { padding: 8px 16px; border-radius: 3px; font: 600 13px var(--typewriter); background: #fffbe0; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45); transform: rotate(-1deg); animation: rdx-pull 0.25s ease-out both; transition: opacity 0.4s, transform 0.4s; }
 .rdx-toast.gone { opacity: 0; transform: translateY(10px) rotate(-1deg); }

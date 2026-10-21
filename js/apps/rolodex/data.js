@@ -149,6 +149,10 @@ export function logTouch(c) {
   contacts.upsert({ ...c, lastContacted: todayIso(), followUpOn: '', updated: Date.now() });
 }
 
+export function setCadence(c, days) {
+  contacts.upsert({ ...c, cadenceDays: days, updated: Date.now() });
+}
+
 export function snooze(c, days) {
   contacts.upsert({ ...c, followUpOn: addDays(todayIso(), days), updated: Date.now() });
 }

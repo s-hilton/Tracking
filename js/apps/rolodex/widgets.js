@@ -2,6 +2,7 @@
 // (a sheet over the desk), quick-tap chips and the person picker.
 import { h } from '../../ui.js';
 import { contacts, displayName, sortedContacts, matches, newContact } from './data.js';
+import { CADENCES, cadenceLabel } from './config.js';
 
 // A big index card pulled out over the desk. Returns { close }.
 export function openSheet(host, { title, tab, body, actions = [], onClose, wide = false }) {
@@ -146,3 +147,14 @@ export const safeUrl = (url) => {
   const full = /^[a-z][a-z0-9+.-]*:/i.test(v) ? v : `https://${v}`;
   return /^(https?|mailto|tel):/i.test(full) ? full : '';
 };
+
+// "Remind me every …" dropdown, for changing a card's reminder in place.
+export function cadenceSelect(contact, onChange) {
+  return h('select', {
+    class: 'rdx-input small rdx-select',
+    'aria-label': `How often to reach out to ${contact.firstName || 'them'}`,
+    onchange: (e) => onChange(Number(e.target.value)),
+  }, ...CADENCES.map(([days]) => h('option', { value: days, selected: days === (contact.cadenceDays ?? 0) }, cadenceLabel(days))),
+  // A value saved before the current choices existed stays selectable.
+  CADENCES.some(([d]) => d === (contact.cadenceDays ?? 0)) ? null : h('option', { value: contact.cadenceDays, selected: true }, cadenceLabel(contact.cadenceDays)));
+}

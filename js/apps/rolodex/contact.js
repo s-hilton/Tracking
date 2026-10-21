@@ -1,9 +1,9 @@
 // One person's card, pulled out of the file: everything you know about them,
 // their follow-up, and the people they're connected to.
 import { h } from '../../ui.js';
-import { RELATIONS, CLOSENESS, CADENCES, ME } from './config.js';
-import { contacts, displayName, linksOf, nextFollowUp, logTouch, prettyDate, todayIso, addDays, daysBetween } from './data.js';
-import { safeUrl } from './widgets.js';
+import { RELATIONS, CLOSENESS, ME } from './config.js';
+import { contacts, displayName, linksOf, nextFollowUp, logTouch, setCadence, prettyDate, todayIso, addDays, daysBetween } from './data.js';
+import { safeUrl, cadenceSelect } from './widgets.js';
 import { createWeb } from './web.js';
 
 const QUICK_FOLLOW = [[1, 'Tomorrow'], [7, '1 week'], [30, '1 month'], [90, '3 months']];
@@ -45,7 +45,6 @@ export function contactPage(ctx, id) {
     c.birthday ? h('li', {}, h('span', { class: 'rdx-k' }, 'Birthday'), h('span', {}, c.birthday)) : null,
   ].filter(Boolean);
 
-  const cadence = CADENCES.find(([d]) => d === (c.cadenceDays ?? 0))?.[1] ?? `Every ${c.cadenceDays} days`;
   const setFollow = (iso) => contacts.upsert({ ...contacts.get(c.id), followUpOn: iso, updated: Date.now() });
   const dateInput = h('input', { type: 'date', class: 'rdx-input small', value: c.followUpOn || '', 'aria-label': 'Follow-up date', onchange: (e) => setFollow(e.target.value) });
 
@@ -63,14 +62,16 @@ export function contactPage(ctx, id) {
         overdue ? h('span', { class: 'rdx-stamp' }, 'Follow up') : null),
       h('div', { class: 'rdx-actions' },
         h('button', { class: 'rdx-btn', onclick: () => ctx.edit(c.id) }, '✎ Edit card'),
-        h('button', { class: 'rdx-btn', onclick: () => { logTouch(c); ctx.toast(`Noted: in touch with ${displayName(c)} today.`); } }, '✓ We talked today'),
+        h('button', { class: 'rdx-btn', onclick: () => { logTouch(c); ctx.toast(`Noted: you reached out to ${displayName(c)} today.`); } }, '✓ I reached out'),
         h('button', { class: 'rdx-btn', onclick: () => ctx.connect(c.id) }, '＋ Who they know')),
 
       h('div', { class: 'rdx-columns' },
         block('Reach', reach.length ? h('ul', { class: 'rdx-list' }, ...reach) : blank('No phone or email yet.')),
         block('Follow-up',
           h('p', { class: overdue ? 'rdx-due over' : 'rdx-due' }, due ? `Next: ${dueText(due)}` : 'No follow-up planned.'),
-          h('p', { class: 'rdx-dim small' }, `Cadence: ${cadence}${c.lastContacted ? ` · Last in touch ${prettyDate(c.lastContacted)}` : ''}`),
+          h('label', { class: 'rdx-row small' }, 'Remind me', cadenceSelect(c, (days) => setCadence(contacts.get(c.id), days))),
+          c.lastContacted ? h('p', { class: 'rdx-dim small' }, `Last reached out ${prettyDate(c.lastContacted)}`) : null,
+          h('p', { class: 'rdx-dim small' }, 'Or a one-off date:'),
           h('div', { class: 'rdx-chips' },
             ...QUICK_FOLLOW.map(([d, label]) => h('button', { type: 'button', class: 'rdx-chip', onclick: () => setFollow(addDays(todayIso(), d)) }, label)),
             dateInput,

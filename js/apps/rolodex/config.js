@@ -32,16 +32,27 @@ export const CLOSENESS = {
   inner: 'Inner circle',
 };
 
-// Follow-up cadence: after you log a touch, the next follow-up is this many days out.
+// How often to be reminded to reach out. After you mark someone as reached out,
+// they come back on the follow-up list once this many days have passed.
+// Months are counted as days (a month is about 30.4) so every value fits one column.
+const month = (n) => Math.round((n * 365) / 12);
 export const CADENCES = [
-  [0, 'No repeat'],
-  [7, 'Weekly'],
-  [14, 'Every 2 weeks'],
-  [30, 'Monthly'],
-  [90, 'Quarterly'],
-  [182, 'Twice a year'],
-  [365, 'Yearly'],
+  [0, 'Never'],
+  [5, '5 days'],
+  [7, '1 week'],
+  [14, '2 weeks'],
+  ...Array.from({ length: 11 }, (_, i) => [month(i + 1), `${i + 1} month${i ? 's' : ''}`]),
+  [365, '1 year'],
 ];
+
+// "1 month", "5 days": how long until someone is back on the follow-up list.
+export const cadenceSpan = (days) => CADENCES.find(([d]) => d === days)?.[1] ?? `${days} days`;
+
+export function cadenceLabel(days) {
+  if (!days) return 'Never';
+  const known = CADENCES.find(([d]) => d === days);
+  return known ? `Every ${known[1].replace(/^1 /, '')}` : `Every ${days} days`;
+}
 
 // Snooze choices on the follow-up list, in days.
 export const SNOOZES = [[3, '3 days'], [7, '1 week'], [30, '1 month']];
