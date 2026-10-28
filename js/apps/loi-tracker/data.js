@@ -42,6 +42,7 @@ export const companies = define('bd_companies', 'ar:companies', {
   introducedBy: ['introduced_by', 'text'],
   tags: ['tags', 'text'],
   useCases: ['use_cases', 'json'],
+  loiGoal: ['loi_goal', 'text'], // customer | partnership | both (see LOI_GOALS)
   notes: ['notes', 'text'],
   doNotContact: ['do_not_contact', 'bool'],
 });

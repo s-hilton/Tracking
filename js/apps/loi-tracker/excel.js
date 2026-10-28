@@ -2,7 +2,7 @@
 // (Companies, Contacts, Opportunities, LOIs, Activities, Follow-ups), with labels
 // instead of internal keys, real dates and numbers, and links that open.
 import {
-  PRODUCTS, STAGES, LOI_STATUSES, LOI_TYPES, VALUE_BASIS, ACTIVITY_TYPES, DIRECTIONS, OUTCOMES, COMPANY_TYPES, LEAD_SOURCES,
+  PRODUCTS, STAGES, LOI_STATUSES, LOI_TYPES, LOI_GOALS, VALUE_BASIS, ACTIVITY_TYPES, DIRECTIONS, OUTCOMES, COMPANY_TYPES, LEAD_SOURCES,
   CONTACT_ROLES, CONTACT_STATUSES, CONTACT_METHOD_TYPES, PRIORITIES, TASK_STATUSES, USE_CASE_SOURCES, SCORE_DIMENSIONS,
   QUALIFICATION_FACTS, CURRENCY,
 } from './config.js';
@@ -29,12 +29,12 @@ const col = (header, width) => ({ header, width });
 function companiesSheet() {
   return {
     name: 'Companies',
-    columns: [col('Name', 28), col('Use cases (products)', 40), col('Type', 20), col('Industry', 18), col('Headquarters', 18),
+    columns: [col('Name', 28), col('Goal', 22), col('Use cases (products)', 40), col('Type', 20), col('Industry', 18), col('Headquarters', 18),
       col('Country', 14), col('Website', 26), col('General email', 26), col('Phone', 16), col('LinkedIn', 26),
       col('Lead source', 18), col('Introduced by', 18), col('Tags', 20), col('Do not contact', 12), col('Last update', 18),
       col('Notes', 50), col('Created', 18)],
     rows: companies.all().slice().sort((a, b) => a.name.localeCompare(b.name)).map((c) => [
-      c.name, companyUseCases(c).map(product).join(', '), label(COMPANY_TYPES, c.type), c.industry, c.headquarters, c.country,
+      c.name, LOI_GOALS[c.loiGoal] ?? '', companyUseCases(c).map(product).join(', '), label(COMPANY_TYPES, c.type), c.industry, c.headquarters, c.country,
       link(c.website), c.email, c.phone, link(c.linkedin), label(LEAD_SOURCES, c.leadSource), c.introducedBy, c.tags,
       Boolean(c.doNotContact), dateTime(lastTouch(c.id)), c.notes, dateTime(c.created),
     ]),

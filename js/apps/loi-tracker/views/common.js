@@ -1,6 +1,6 @@
 // Small building blocks shared by the LOIs app's views.
 import { h } from '../../../ui.js';
-import { PRODUCTS, CURRENCY, LOI_TYPES } from '../config.js';
+import { PRODUCTS, CURRENCY, LOI_TYPES, goalTypes } from '../config.js';
 import { parseIso } from '../data.js';
 
 const moneyFormat = new Intl.NumberFormat(undefined, { style: 'currency', currency: CURRENCY, maximumFractionDigits: 0 });
@@ -24,6 +24,12 @@ export const loiTypeTag = (type) => {
   const t = LOI_TYPES[type];
   return t ? h('span', { class: 'bd-type', style: `--chip:${t.color}`, title: t.label }, t.short) : null;
 };
+
+// A company's goal: the LOI tag(s) it's working towards, marked as a goal.
+export const goalTags = (goal) => goalTypes(goal).map((type) => {
+  const t = LOI_TYPES[type];
+  return h('span', { class: 'bd-type goal', style: `--chip:${t.color}`, title: `Goal: ${t.label}` }, '◎ ', t.short);
+});
 
 export const productChip = (key) => {
   const p = PRODUCTS[key];

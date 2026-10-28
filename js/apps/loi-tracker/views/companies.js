@@ -1,7 +1,7 @@
 // Companies list and the company page (contacts, opportunities, LOIs, follow-ups, timeline).
 import { h } from '../../../ui.js';
 import {
-  PRODUCTS, STAGES, LOI_STATUSES, ACTIVITY_TYPES, DIRECTIONS, OUTCOMES, COMPANY_TYPES, LEAD_SOURCES, CONTACT_ROLES,
+  PRODUCTS, STAGES, LOI_STATUSES, LOI_GOALS, goalTypes, ACTIVITY_TYPES, DIRECTIONS, OUTCOMES, COMPANY_TYPES, LEAD_SOURCES, CONTACT_ROLES,
   CONTACT_STATUSES, VALUE_BASIS, STALE_DAYS, STRONG_FIT_SCORE, PRIORITIES,
 } from '../config.js';
 import {
@@ -13,7 +13,7 @@ import {
   editCompany, editContact, editOpportunity, logActivity, editTask, editLoi, completeTask, reopenTask,
 } from '../editors.js';
 import {
-  money, ago, pill, productChip, loiTypeTag, section, empty, button, searchBox, selectBox, matches, fmtDate, fmtDateTime, extLink,
+  money, ago, pill, productChip, loiTypeTag, goalTags, section, empty, button, searchBox, selectBox, matches, fmtDate, fmtDateTime, extLink,
 } from './common.js';
 
 const VIEWS = {
@@ -32,6 +32,7 @@ export function companyList(ctx) {
   const { state, product } = ctx;
   state.companyQuery ??= '';
   state.companyView ??= 'all';
+  state.companyGoal ??= 'all';
   const list = h('ul', { class: 'bd-rows' });
 
   const renderList = () => {
@@ -41,6 +42,7 @@ export function companyList(ctx) {
       .filter(({ c, r }) => product === 'all' || r.opportunities.some((o) => o.product === product) || companyUseCases(c).includes(product))
       .filter(({ c, r }) => matches(state.companyQuery, c.name, c.aliases, c.tags, c.industry, c.country, ...companyUseCases(c).map((k) => PRODUCTS[k].label),
         ...[...r.contacts, ...r.formerContacts].flatMap((x) => [contactName(x), ...contactMethods(x).map((m) => m.value)])))
+      .filter(({ c }) => state.companyGoal === 'all' || (state.companyGoal === 'none' ? !goalTypes(c.loiGoal).length : goalTypes(c.loiGoal).includes(state.companyGoal)))
       .filter(({ c, r, last }) => ({
         all: true,
         stale: !c.doNotContact && !hasSignedLoi(c.id) && last < staleCutoff,
@@ -67,6 +69,7 @@ export function companyList(ctx) {
             nextTask ? `next: ${nextTask.title} (${fmtDate(nextTask.dueOn)})` : null,
           ].filter(Boolean).join(' · '))),
         h('div', { class: 'bd-row-meta' },
+          ...goalTags(c.loiGoal),
           ...productsHere.map(productChip),
           signed ? pill(`${signed} signed LOI${signed === 1 ? '' : 's'}`, 'good') : null,
           pill(`Updated ${ago(last)}`, stale ? 'bad' : 'neutral')));
@@ -77,6 +80,7 @@ export function companyList(ctx) {
     h('div', { class: 'bd-toolbar' },
       searchBox(state.companyQuery, 'Search companies, contacts, tags…', (v) => { state.companyQuery = v; renderList(); }),
       selectBox(state.companyView, VIEWS, (v) => { state.companyView = v; renderList(); }, 'Saved view'),
+      selectBox(state.companyGoal, { all: 'Any goal', customer: 'Goal: Customer LOI', partnership: 'Goal: Partnership LOI', none: 'Goal not set' }, (v) => { state.companyGoal = v; renderList(); }, 'Goal'),
       button('+ Company', () => editCompany(ctx.host, null, { onSaved: (c) => ctx.go('company', { companyId: c.id }) }), 'btn primary')),
     quickAdd(ctx),
     list);
@@ -149,6 +153,9 @@ export function companyPage(ctx) {
     h('div', {},
       h('button', { class: 'btn ghost bd-back', onclick: () => ctx.go('companies') }, '‹ Companies'),
       h('h2', {}, company.name),
+      h('div', { class: 'bd-goal' },
+        h('span', { class: 'muted small' }, 'Goal'),
+        ...(goalTypes(company.loiGoal).length ? goalTags(company.loiGoal) : [h('button', { class: 'link-btn', onclick: () => editCompany(host, company, { onDeleted: () => ctx.go('companies') }) }, 'Set the LOI we’re building towards')])),
       h('p', { class: 'muted small' }, facts.join(' · ') || 'No profile details yet'),
       h('div', { class: 'bd-row-meta' },
         website ? extLink(website, company.website) : null,

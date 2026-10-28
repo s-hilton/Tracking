@@ -77,6 +77,8 @@
 .bd-pill.bad { background: color-mix(in srgb, #ef4444 15%, transparent); color: #dc2626; }
 .bd-chip { padding: 1px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; color: var(--chip); background: color-mix(in srgb, var(--chip) 15%, transparent); white-space: nowrap; }
 .bd-type { padding: 0 8px; border: 1.5px solid var(--chip); border-radius: 999px; font-size: 11px; font-weight: 700; line-height: 1.5; color: var(--chip); white-space: nowrap; }
+.bd-type.goal { border-style: dashed; }
+.bd-goal { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 2px 0 4px; }
 
 /* Pipeline bars */
 .bd-bars { display: grid; gap: 4px; }

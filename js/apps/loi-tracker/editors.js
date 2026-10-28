@@ -4,7 +4,7 @@ import { h } from '../../ui.js';
 import { currentUser } from '../../cloud.js';
 import { openForm } from './form.js';
 import {
-  PRODUCTS, STAGES, LOI_STATUSES, LOI_TYPES, VALUE_BASIS, ACTIVITY_TYPES, DIRECTIONS, OUTCOMES, FOLLOW_UP_DEFAULTS,
+  PRODUCTS, STAGES, LOI_STATUSES, LOI_TYPES, LOI_GOALS, goalTypes, VALUE_BASIS, ACTIVITY_TYPES, DIRECTIONS, OUTCOMES, FOLLOW_UP_DEFAULTS,
   COMPANY_TYPES, LEAD_SOURCES, CONTACT_ROLES, CONTACT_STATUSES, PRIORITIES, TASK_STATUSES, USE_CASE_SOURCES, CURRENCY,
   SCORE_DIMENSIONS, QUALIFICATION_FACTS, CONTACT_METHOD_TYPES,
 } from './config.js';
@@ -51,6 +51,8 @@ export function editCompany(host, company, { onSaved, onDeleted } = {}) {
       { key: 'leadSource', label: 'Lead source', type: 'select', options: LEAD_SOURCES },
       { key: 'introducedBy', label: 'Introduced by' },
       { key: 'tags', label: 'Tags', placeholder: 'comma, separated', wide: true },
+      { type: 'heading', label: 'Goal' },
+      { key: 'loiGoal', label: 'What LOI are we building towards?', type: 'select', options: [['', 'Not decided yet'], ...Object.entries(LOI_GOALS)], help: 'Shown as a tag on the company; new LOIs for it start as this type' },
       { type: 'heading', label: 'Use cases' },
       { key: 'useCases', label: 'Products this company could use', type: 'multi', options: productOptions, wide: true },
       { type: 'heading', label: 'Notes' },
@@ -404,9 +406,10 @@ function allocationEditor(values) {
 
 export function editLoi(host, loi, { companyId } = {}) {
   const previousStatus = loi?.status;
+  const goal = goalTypes(companies.get(companyId ?? loi?.companyId)?.loiGoal);
   openForm(host, {
     title: loi ? 'Edit LOI' : 'New LOI',
-    values: loi ?? { companyId, loiType: 'customer', status: 'draft', currency: CURRENCY, valueBasis: 'total', allocations: [], opportunityIds: [], binding: 'non_binding' },
+    values: loi ?? { companyId, loiType: goal.length === 1 ? goal[0] : 'customer', status: 'draft', currency: CURRENCY, valueBasis: 'total', allocations: [], opportunityIds: [], binding: 'non_binding' },
     submitLabel: loi ? 'Save' : 'Add LOI',
     fields: [
       ...companyField(companyId || loi),
@@ -444,6 +447,9 @@ export function editLoi(host, loi, { companyId } = {}) {
       if (v.status !== previousStatus) history.push({ note: `Status: ${LOI_STATUSES[previousStatus]?.label ?? 'New'} → ${LOI_STATUSES[v.status].label}`, at: Date.now(), by: by() });
       if (loi && (loi.amount ?? null) !== (v.amount ?? null)) history.push({ note: `Value: ${loi.amount ?? 'unpriced'} → ${v.amount ?? 'unpriced'}`, at: Date.now(), by: by() });
       saveRecord(lois, { ...v, allocations, statusHistory: history });
+      // A company with no goal yet takes it from its first typed LOI.
+      const company = companies.get(v.companyId);
+      if (company && !company.loiGoal && LOI_TYPES[v.loiType]) saveRecord(companies, { ...company, loiGoal: v.loiType });
       // A new version retires the one it replaces, so they never both count.
       const older = v.supersedesId && lois.get(v.supersedesId);
       if (older && older.status !== 'superseded') {
