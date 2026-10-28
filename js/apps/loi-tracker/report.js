@@ -4,7 +4,7 @@
 import { h } from '../../ui.js';
 import { currentUser } from '../../cloud.js';
 import {
-  PRODUCTS, STAGES, LOI_STATUSES, LOI_TYPES, VALUE_BASIS, ACTIVITY_TYPES, DIRECTIONS, OUTCOMES, COMPANY_TYPES, LEAD_SOURCES,
+  PRODUCTS, STAGES, LOI_STATUSES, LOI_TYPES, LOI_GOALS, VALUE_BASIS, ACTIVITY_TYPES, DIRECTIONS, OUTCOMES, COMPANY_TYPES, LEAD_SOURCES,
   CONTACT_ROLES, CONTACT_STATUSES, CONTACT_METHOD_TYPES, TASK_STATUSES, SCORE_DIMENSIONS, QUALIFICATION_FACTS, STALE_DAYS,
   CURRENCY,
 } from './config.js';
@@ -151,7 +151,7 @@ function companyDirectory() {
       return h('article', { class: 'company' },
         h('h3', {}, c.name, c.doNotContact ? h('span', { class: 'tag' }, 'Do not contact') : null),
         facts([
-          ['Type', c.type ? COMPANY_TYPES[c.type] : ''], ['Industry', c.industry],
+          ['Goal', LOI_GOALS[c.loiGoal] ?? ''], ['Type', c.type ? COMPANY_TYPES[c.type] : ''], ['Industry', c.industry],
           ['Location', [c.headquarters, c.country].filter(Boolean).join(', ')],
           ['Website', website ? link(website, c.website) : ''], ['Email', c.email], ['Phone', c.phone],
           ['Lead source', c.leadSource ? LEAD_SOURCES[c.leadSource] : ''], ['Introduced by', c.introducedBy],

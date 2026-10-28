@@ -138,6 +138,10 @@ export const LOI_TYPES = {
   partnership: { label: 'Partnership LOI', short: 'Partnership', color: '#7c3aed' },
 };
 
+// What we're building towards with a company: a customer LOI, a partnership LOI, or both.
+export const LOI_GOALS = { customer: 'Customer LOI', partnership: 'Partnership LOI', both: 'Customer + Partnership' };
+export const goalTypes = (goal) => (goal === 'both' ? ['customer', 'partnership'] : LOI_TYPES[goal] ? [goal] : []);
+
 // Counted as "proposed LOI value" (under negotiation, not yet signed).
 export const PROPOSED_LOI_STATUSES = ['draft', 'shared', 'negotiating', 'awaiting_signatures'];
 
