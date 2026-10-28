@@ -4,7 +4,7 @@
 import { h } from '../../ui.js';
 import { currentUser } from '../../cloud.js';
 import {
-  PRODUCTS, STAGES, LOI_STATUSES, VALUE_BASIS, ACTIVITY_TYPES, DIRECTIONS, OUTCOMES, COMPANY_TYPES, LEAD_SOURCES,
+  PRODUCTS, STAGES, LOI_STATUSES, LOI_TYPES, VALUE_BASIS, ACTIVITY_TYPES, DIRECTIONS, OUTCOMES, COMPANY_TYPES, LEAD_SOURCES,
   CONTACT_ROLES, CONTACT_STATUSES, CONTACT_METHOD_TYPES, TASK_STATUSES, SCORE_DIMENSIONS, QUALIFICATION_FACTS, STALE_DAYS,
   CURRENCY,
 } from './config.js';
@@ -73,10 +73,11 @@ function loiRegister() {
   const rows = lois.all().slice().sort((a, b) => companyName(a.companyId).localeCompare(companyName(b.companyId)));
   return h('section', {},
     h('h2', {}, 'LOI register'),
-    table(['Company', 'LOI', 'Status', 'Value', 'Basis', 'Allocation', 'Sent', 'Signed', 'Expires', 'Signatories', 'Documents'],
+    table(['Company', 'LOI', 'Type', 'Status', 'Value', 'Basis', 'Allocation', 'Sent', 'Signed', 'Expires', 'Signatories', 'Documents'],
       rows.map((l) => [
         companyName(l.companyId),
         l.title,
+        LOI_TYPES[l.loiType]?.short ?? '',
         `${LOI_STATUSES[l.status]?.label ?? l.status}${l.status === 'signed' && !isActiveSigned(l) ? ' (past expiry)' : ''}`,
         money(l.amount, 'Unpriced'),
         VALUE_BASIS[l.valueBasis] ?? '',
@@ -164,8 +165,8 @@ function companyDirectory() {
         h('h4', {}, 'Opportunities'),
         r.opportunities.length ? h('div', {}, ...r.opportunities.map(opportunityBlock)) : h('p', { class: 'empty' }, 'None'),
         h('h4', {}, 'LOIs'),
-        table(['LOI', 'Status', 'Value', 'Signed', 'Expires', 'Binding', 'Legal notes', 'Notes'],
-          r.lois.map((l) => [l.title, LOI_STATUSES[l.status]?.label ?? l.status, money(l.amount, 'Unpriced'), date(l.signedOn), date(l.expiresOn),
+        table(['LOI', 'Type', 'Status', 'Value', 'Signed', 'Expires', 'Binding', 'Legal notes', 'Notes'],
+          r.lois.map((l) => [l.title, LOI_TYPES[l.loiType]?.short ?? '', LOI_STATUSES[l.status]?.label ?? l.status, money(l.amount, 'Unpriced'), date(l.signedOn), date(l.expiresOn),
             l.binding ? l.binding.replace('_', '-') : '', l.legalNotes, l.notes])),
         h('h4', {}, 'Follow-ups'),
         table(['Due', 'Follow-up', 'Status', 'Notes'], r.tasks.slice().sort((a, b) => (a.dueOn || '9').localeCompare(b.dueOn || '9'))

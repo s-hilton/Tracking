@@ -13,7 +13,7 @@ import {
   editCompany, editContact, editOpportunity, logActivity, editTask, editLoi, completeTask, reopenTask,
 } from '../editors.js';
 import {
-  money, ago, pill, productChip, section, empty, button, searchBox, selectBox, matches, fmtDate, fmtDateTime, extLink,
+  money, ago, pill, productChip, loiTypeTag, section, empty, button, searchBox, selectBox, matches, fmtDate, fmtDateTime, extLink,
 } from './common.js';
 
 const VIEWS = {
@@ -207,6 +207,7 @@ export function companyPage(ctx) {
           l.expiresOn ? `Expires ${fmtDate(l.expiresOn)}` : null,
         ].filter(Boolean).join(' · ') || ' ')),
       h('div', { class: 'bd-row-meta' },
+        loiTypeTag(l.loiType),
         pill(LOI_STATUSES[l.status]?.label ?? l.status, LOI_STATUSES[l.status]?.tone),
         h('span', { class: 'bd-num' }, money(l.amount, 'Unpriced')),
         l.valueBasis && l.valueBasis !== 'total' ? h('span', { class: 'muted small' }, VALUE_BASIS[l.valueBasis]) : null,
