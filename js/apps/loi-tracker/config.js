@@ -132,6 +132,12 @@ export const LOI_STATUSES = {
   withdrawn: { label: 'Withdrawn', tone: 'bad' },
   superseded: { label: 'Superseded', tone: 'neutral' },
 };
+// What kind of LOI it is: from a customer, or a partnership. Shown as a tag.
+export const LOI_TYPES = {
+  customer: { label: 'Customer LOI', short: 'Customer', color: '#0369a1' },
+  partnership: { label: 'Partnership LOI', short: 'Partnership', color: '#7c3aed' },
+};
+
 // Counted as "proposed LOI value" (under negotiation, not yet signed).
 export const PROPOSED_LOI_STATUSES = ['draft', 'shared', 'negotiating', 'awaiting_signatures'];
 

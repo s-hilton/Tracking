@@ -2,7 +2,7 @@
 // (Companies, Contacts, Opportunities, LOIs, Activities, Follow-ups), with labels
 // instead of internal keys, real dates and numbers, and links that open.
 import {
-  PRODUCTS, STAGES, LOI_STATUSES, VALUE_BASIS, ACTIVITY_TYPES, DIRECTIONS, OUTCOMES, COMPANY_TYPES, LEAD_SOURCES,
+  PRODUCTS, STAGES, LOI_STATUSES, LOI_TYPES, VALUE_BASIS, ACTIVITY_TYPES, DIRECTIONS, OUTCOMES, COMPANY_TYPES, LEAD_SOURCES,
   CONTACT_ROLES, CONTACT_STATUSES, CONTACT_METHOD_TYPES, PRIORITIES, TASK_STATUSES, USE_CASE_SOURCES, SCORE_DIMENSIONS,
   QUALIFICATION_FACTS, CURRENCY,
 } from './config.js';
@@ -87,12 +87,12 @@ function loisSheet() {
   const allocated = (l, p) => (l.allocations ?? []).filter((a) => a.product === p).reduce((s, a) => s + (Number(a.amount) || 0), 0);
   return {
     name: 'LOIs',
-    columns: [col('Company', 26), col('Title', 28), col('Status', 18), col(`Stated value (${CURRENCY})`, 16), col('Value basis', 16),
+    columns: [col('Company', 26), col('Title', 28), col('Type', 16), col('Status', 18), col(`Stated value (${CURRENCY})`, 16), col('Value basis', 16),
       ...Object.values(PRODUCTS).map((p) => col(`${p.short} allocation`, 14)), col('Unallocated', 14), col('Sent', 12),
       col('Signed', 12), col('Effective', 12), col('Expires', 12), col('Binding', 16), col('Signatories', 26),
       col('Linked opportunities', 30), col('Signed document', 30), col('Draft', 30), col('Legal notes', 40), col('Notes', 50)],
     rows: lois.all().slice().sort(byCompany).map((l) => [
-      companyName(l.companyId), l.title, label(LOI_STATUSES, l.status), l.amount == null ? 'Unpriced' : money(l.amount),
+      companyName(l.companyId), l.title, LOI_TYPES[l.loiType]?.label ?? '', label(LOI_STATUSES, l.status), l.amount == null ? 'Unpriced' : money(l.amount),
       label(VALUE_BASIS, l.valueBasis), ...Object.keys(PRODUCTS).map((p) => money(allocated(l, p) || null)), money(unallocated(l)),
       date(l.sentOn), date(l.signedOn), date(l.effectiveOn), date(l.expiresOn),
       { non_binding: 'Non-binding', partially_binding: 'Partially binding', binding: 'Binding' }[l.binding] ?? l.binding ?? '',

@@ -4,7 +4,7 @@ import { h } from '../../ui.js';
 import { currentUser } from '../../cloud.js';
 import { openForm } from './form.js';
 import {
-  PRODUCTS, STAGES, LOI_STATUSES, VALUE_BASIS, ACTIVITY_TYPES, DIRECTIONS, OUTCOMES, FOLLOW_UP_DEFAULTS,
+  PRODUCTS, STAGES, LOI_STATUSES, LOI_TYPES, VALUE_BASIS, ACTIVITY_TYPES, DIRECTIONS, OUTCOMES, FOLLOW_UP_DEFAULTS,
   COMPANY_TYPES, LEAD_SOURCES, CONTACT_ROLES, CONTACT_STATUSES, PRIORITIES, TASK_STATUSES, USE_CASE_SOURCES, CURRENCY,
   SCORE_DIMENSIONS, QUALIFICATION_FACTS, CONTACT_METHOD_TYPES,
 } from './config.js';
@@ -406,11 +406,12 @@ export function editLoi(host, loi, { companyId } = {}) {
   const previousStatus = loi?.status;
   openForm(host, {
     title: loi ? 'Edit LOI' : 'New LOI',
-    values: loi ?? { companyId, status: 'draft', currency: CURRENCY, valueBasis: 'total', allocations: [], opportunityIds: [], binding: 'non_binding' },
+    values: loi ?? { companyId, loiType: 'customer', status: 'draft', currency: CURRENCY, valueBasis: 'total', allocations: [], opportunityIds: [], binding: 'non_binding' },
     submitLabel: loi ? 'Save' : 'Add LOI',
     fields: [
       ...companyField(companyId || loi),
       { key: 'title', label: 'Title', placeholder: 'e.g. Lunar relay services LOI', wide: true },
+      { key: 'loiType', label: 'Type', type: 'select', options: [...(loi && !LOI_TYPES[loi.loiType] ? [['', 'Not set']] : []), ...Object.entries(LOI_TYPES).map(([k, t]) => [k, t.label])], help: 'Customer or partnership' },
       { key: 'status', label: 'Status', type: 'select', options: labels(LOI_STATUSES) },
       { key: 'binding', label: 'Binding character', type: 'select', options: { non_binding: 'Non-binding', partially_binding: 'Partially binding', binding: 'Binding' } },
       { key: 'amount', label: `Stated value (${CURRENCY})`, type: 'number', min: 0, help: 'Leave blank if unpriced (unknown is not $0)' },

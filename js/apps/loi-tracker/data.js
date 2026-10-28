@@ -119,6 +119,7 @@ export const tasks = define('bd_tasks', 'ar:tasks', {
 export const lois = define('lois', 'ar:lois', {
   companyId: ['company_id', 'text'],
   title: ['title', 'text'],
+  loiType: ['loi_type', 'text'], // customer | partnership (see LOI_TYPES)
   status: ['status', 'text'],
   amount: ['amount', 'num'],
   currency: ['currency', 'text'],

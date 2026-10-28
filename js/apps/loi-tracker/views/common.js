@@ -1,6 +1,6 @@
 // Small building blocks shared by the LOIs app's views.
 import { h } from '../../../ui.js';
-import { PRODUCTS, CURRENCY } from '../config.js';
+import { PRODUCTS, CURRENCY, LOI_TYPES } from '../config.js';
 import { parseIso } from '../data.js';
 
 const moneyFormat = new Intl.NumberFormat(undefined, { style: 'currency', currency: CURRENCY, maximumFractionDigits: 0 });
@@ -18,6 +18,12 @@ export function ago(ms) {
 }
 
 export const pill = (label, tone = 'neutral') => h('span', { class: `bd-pill ${tone}` }, label);
+
+// The Customer / Partnership tag on an LOI (nothing for LOIs saved before types existed).
+export const loiTypeTag = (type) => {
+  const t = LOI_TYPES[type];
+  return t ? h('span', { class: 'bd-type', style: `--chip:${t.color}`, title: t.label }, t.short) : null;
+};
 
 export const productChip = (key) => {
   const p = PRODUCTS[key];
