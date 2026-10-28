@@ -6,7 +6,7 @@ import {
 } from '../data.js';
 import { editLoi } from '../editors.js';
 import {
-  money, pill, productChip, loiTypeTag, empty, button, searchBox, selectBox, matches, fmtDate, extLink, toCsv, downloadFile,
+  money, pill, productChip, loiTypeTag, loiTypeTable, section, empty, button, searchBox, selectBox, matches, fmtDate, extLink, toCsv, downloadFile,
 } from './common.js';
 
 export function loiRegister(ctx) {
@@ -14,7 +14,8 @@ export function loiRegister(ctx) {
   state.loiQuery ??= '';
   state.loiStatus ??= 'all';
   state.loiType ??= 'all';
-  const totals = loiTotals(product);
+  const totals = loiTotals(product, state.loiType);
+  const typeName = state.loiType === 'all' ? '' : state.loiType === 'none' ? ' (type not set)' : ` (${LOI_TYPES[state.loiType].short.toLowerCase()})`;
 
   const inScope = () => lois.all()
     .filter((l) => product === 'all' || loiProducts(l).includes(product))
@@ -80,14 +81,15 @@ export function loiRegister(ctx) {
 
   const view = h('div', { class: 'bd-view' },
     h('div', { class: 'bd-stats' },
-      tile('Active signed LOIs', String(totals.signedCount), totals.signedUnpriced ? `${totals.signedUnpriced} unpriced` : 'distinct LOIs', 'good'),
-      tile('Active signed value', money(totals.signedValue), product === 'all' ? 'combined, counted once per LOI' : `${PRODUCTS[product].short} allocations only`),
-      tile('Proposed LOI value', money(totals.proposedValue), `${totals.proposedCount} not yet signed`),
+      tile(`Active signed LOIs${typeName}`, String(totals.signedCount), totals.signedUnpriced ? `${totals.signedUnpriced} unpriced` : 'distinct LOIs', 'good'),
+      tile(`Active signed value${typeName}`, money(totals.signedValue), product === 'all' ? 'combined, counted once per LOI' : `${PRODUCTS[product].short} allocations only`),
+      tile(`Proposed LOI value${typeName}`, money(totals.proposedValue), `${totals.proposedCount} not yet signed`),
       product === 'all' ? tile('Unallocated signed value', money(totals.unallocatedSigned), 'not yet split by product') : null),
     h('p', { class: 'muted small' }, 'Active signed excludes expired, withdrawn and superseded LOIs. Unpriced LOIs are counted separately, never as $0.'),
+    section('Customer vs partnership', null, loiTypeTable(product)),
     h('div', { class: 'bd-toolbar' },
       searchBox(state.loiQuery, 'Search LOIs, companies, signatories…', (v) => { state.loiQuery = v; render(); }),
-      selectBox(state.loiType, types, (v) => { state.loiType = v; render(); }, 'Type'),
+      selectBox(state.loiType, types, (v) => { state.loiType = v; ctx.refresh(); }, 'Type'),
       selectBox(state.loiStatus, statuses, (v) => { state.loiStatus = v; render(); }, 'Status'),
       button('Export CSV', exportCsv, 'btn ghost'),
       button('+ LOI', () => editLoi(host, null), 'btn primary')),

@@ -2,7 +2,7 @@
 // derived numbers (last touch, follow-up reminders, LOI totals).
 import { createCollection } from '../../cloud.js';
 import { load, remove, uid } from '../../storage.js';
-import { STALE_DAYS, PROPOSED_LOI_STATUSES, STAGES, SCORE_DIMENSIONS, PRODUCTS } from './config.js';
+import { STALE_DAYS, PROPOSED_LOI_STATUSES, STAGES, SCORE_DIMENSIONS, PRODUCTS, LOI_TYPES, goalTypes } from './config.js';
 
 // How each JS value is written to / read from its column.
 const KINDS = {
@@ -282,8 +282,11 @@ export function loiProducts(l) {
   return [...set];
 }
 
-export function loiTotals(product = 'all') {
-  const inScope = lois.all().filter((l) => product === 'all' || loiProducts(l).includes(product));
+// type: 'all', a key of LOI_TYPES, or 'none' (LOIs whose type isn't set yet).
+export const loiOfType = (l, type) => type === 'all' || (type === 'none' ? !LOI_TYPES[l.loiType] : l.loiType === type);
+
+export function loiTotals(product = 'all', type = 'all') {
+  const inScope = lois.all().filter((l) => (product === 'all' || loiProducts(l).includes(product)) && loiOfType(l, type));
   const sum = (list) => list.reduce((total, l) => total + (loiValueFor(l, product) ?? 0), 0);
   const signed = inScope.filter(isActiveSigned);
   const proposed = inScope.filter(isProposed);
@@ -296,6 +299,21 @@ export function loiTotals(product = 'all') {
     historicalSignedCount: inScope.filter((l) => l.signedOn || l.status === 'signed').length,
     unallocatedSigned: product === 'all' ? signed.reduce((t, l) => t + Math.max(0, unallocated(l) ?? 0), 0) : 0,
   };
+}
+
+// Totals for each LOI type (customer, partnership, and "not set" while any LOI lacks one).
+export function loiTotalsByType(product = 'all') {
+  const rows = Object.keys(LOI_TYPES).map((type) => ({ type, totals: loiTotals(product, type) }));
+  if (lois.all().some((l) => loiOfType(l, 'none') && (product === 'all' || loiProducts(l).includes(product)))) rows.push({ type: 'none', totals: loiTotals(product, 'none') });
+  return rows;
+}
+
+// What a company is working towards: its chosen goal, or else the types of its LOIs.
+export function companyGoal(company) {
+  const chosen = goalTypes(company?.loiGoal);
+  if (chosen.length) return { types: chosen, fromLois: false };
+  const types = Object.keys(LOI_TYPES).filter((t) => lois.all().some((l) => l.companyId === company?.id && l.loiType === t));
+  return { types, fromLois: types.length > 0 };
 }
 
 export const stageGroup = (opp) => STAGES[opp.stage]?.group ?? 'open';

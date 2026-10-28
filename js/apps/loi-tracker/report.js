@@ -10,7 +10,7 @@ import {
 } from './config.js';
 import {
   companies, contacts, opportunities, lois, related, contactName, companyUseCases, contactMethods, contactAffiliations, companyName,
-  staleCompanies, overdueTasks, openTasks, loiTotals, loiProducts, unallocated, leadScore, stageGroup, isActiveSigned,
+  staleCompanies, overdueTasks, openTasks, loiTotals, loiTotalsByType, companyGoal, loiProducts, unallocated, leadScore, stageGroup, isActiveSigned,
   todayIso, parseIso,
 } from './data.js';
 
@@ -55,6 +55,10 @@ function summary() {
       }),
       ['Unallocated (not yet split by product)', '', '', money(all.unallocatedSigned), ''],
       ['Combined (distinct LOIs, counted once)', `${opps.filter((o) => stageGroup(o) === 'open').length} / ${opps.length}`, String(all.signedCount), money(all.signedValue), money(all.proposedValue)]]),
+    h('h3', {}, 'By LOI type'),
+    table(['Type', 'Active signed LOIs', 'Signed value', 'Proposed LOIs', 'Proposed value'],
+      [...loiTotalsByType('all').map(({ type, totals: t }) => [LOI_TYPES[type]?.label ?? 'Type not set', String(t.signedCount), money(t.signedValue), String(t.proposedCount), money(t.proposedValue)]),
+        ['All LOIs', String(all.signedCount), money(all.signedValue), String(all.proposedCount), money(all.proposedValue)]]),
     h('p', { class: 'note' }, 'Active signed excludes expired, withdrawn and superseded LOIs. Unpriced LOIs are counted separately, never as $0. LOIs are non-binding unless noted.'));
 }
 
@@ -151,7 +155,7 @@ function companyDirectory() {
       return h('article', { class: 'company' },
         h('h3', {}, c.name, c.doNotContact ? h('span', { class: 'tag' }, 'Do not contact') : null),
         facts([
-          ['Goal', LOI_GOALS[c.loiGoal] ?? ''], ['Type', c.type ? COMPANY_TYPES[c.type] : ''], ['Industry', c.industry],
+          ['Goal', LOI_GOALS[c.loiGoal] ?? companyGoal(c).types.map((t) => `${LOI_TYPES[t].label} (from its LOIs)`).join(', ')], ['Type', c.type ? COMPANY_TYPES[c.type] : ''], ['Industry', c.industry],
           ['Location', [c.headquarters, c.country].filter(Boolean).join(', ')],
           ['Website', website ? link(website, c.website) : ''], ['Email', c.email], ['Phone', c.phone],
           ['Lead source', c.leadSource ? LEAD_SOURCES[c.leadSource] : ''], ['Introduced by', c.introducedBy],
