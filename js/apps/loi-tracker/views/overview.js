@@ -2,11 +2,11 @@
 import { h } from '../../../ui.js';
 import { PRODUCTS, STAGES, STALE_DAYS, EXPIRY_ALERT_DAYS, ACTIVITY_TYPES } from '../config.js';
 import {
-  companies, opportunities, lois, activities, staleCompanies, overdueTasks, openTasks, todayIso, loiTotals, loiValueFor,
+  companies, opportunities, lois, activities, staleCompanies, overdueTasks, openTasks, todayIso, loiTotals, loiTotalsByType, loiValueFor,
   isActiveSigned, companyName, daysUntil, stageGroup,
 } from '../data.js';
 import { logActivity, completeTask } from '../editors.js';
-import { money, ago, section, empty, button, fmtDate, pill, productChip } from './common.js';
+import { money, ago, section, empty, button, fmtDate, pill, productChip, loiTypeTag, loiTypeTable } from './common.js';
 import { dateFilter } from './analytics.js';
 import { resolveRange, describeRange, inRange, isoInRange, scopedActivities } from '../analytics.js';
 
@@ -45,14 +45,17 @@ export function overview(ctx) {
   // ---- Headline numbers ----
   const companyIds = new Set(opps.map((o) => o.companyId));
   const expiring = lois.all().filter((l) => isActiveSigned(l) && l.expiresOn && daysUntil(l.expiresOn) <= EXPIRY_ALERT_DAYS[0]);
-  const tile = (label, value, sub, tone) => h('div', { class: `bd-stat${tone ? ` ${tone}` : ''}` },
-    h('span', { class: 'muted small' }, label), h('strong', {}, value), sub ? h('span', { class: 'muted small' }, sub) : null);
+  const tile = (label, value, sub, tone, extra) => h('div', { class: `bd-stat${tone ? ` ${tone}` : ''}` },
+    h('span', { class: 'muted small' }, label), h('strong', {}, value), sub ? h('span', { class: 'muted small' }, sub) : null, extra ?? null);
+  // "Customer $X · Partnership $Y" under the LOI tiles.
+  const byType = loiTotalsByType(product).filter((r) => r.type !== 'none');
+  const typeLine = (key) => h('span', { class: 'bd-type-line' }, ...byType.flatMap((r, i) => [i ? ' · ' : '', loiTypeTag(r.type), ` ${money(r.totals[key])}`]));
   const stats = h('div', { class: 'bd-stats' },
     tile(product === 'all' ? 'Companies' : 'Companies in pipeline', String(product === 'all' ? companies.all().length : companyIds.size),
       product === 'all' ? `${companyIds.size} with opportunities` : null),
     tile('Open opportunities (now)', String(opps.filter((o) => stageGroup(o) === 'open').length), `${opps.length} total`),
-    tile('Active signed LOIs', String(totals.signedCount), `${money(totals.signedValue)}${totals.signedUnpriced ? ` · ${totals.signedUnpriced} unpriced` : ''}`, 'good'),
-    tile('Proposed LOI value', money(totals.proposedValue), `${totals.proposedCount} under negotiation`),
+    tile('Active signed LOIs', String(totals.signedCount), `${money(totals.signedValue)}${totals.signedUnpriced ? ` · ${totals.signedUnpriced} unpriced` : ''}`, 'good', typeLine('signedValue')),
+    tile('Proposed LOI value', money(totals.proposedValue), `${totals.proposedCount} under negotiation`, '', typeLine('proposedValue')),
     tile('Overdue follow-ups', String(overdueTasks().length), null, overdueTasks().length ? 'bad' : ''),
     tile(`Expiring in ${EXPIRY_ALERT_DAYS[0]} days`, String(expiring.length), null, expiring.length ? 'warn' : ''));
 
@@ -104,6 +107,9 @@ export function overview(ctx) {
       h('p', { class: 'muted small' }, 'Product rows use each LOI\'s allocations; value not yet split by product is shown as unallocated and only counted once in the combined total.'))
     : null;
 
+  // ---- Customer vs partnership ----
+  const typeSection = lois.all().length ? section('LOIs: customer vs partnership', button('LOI register', () => ctx.go('lois'), 'btn ghost'), loiTypeTable(product)) : null;
+
   // ---- Expiring signed LOIs ----
   const expiringSection = expiring.length
     ? section('Signed LOIs expiring soon', null, h('ul', { class: 'bd-rows' }, ...expiring.sort((a, b) => a.expiresOn.localeCompare(b.expiresOn)).map((l) => {
@@ -115,5 +121,5 @@ export function overview(ctx) {
     })))
     : null;
 
-  return h('div', { class: 'bd-view bd-overview' }, reminder, dueSection, stats, period, pipeline, byProduct, expiringSection);
+  return h('div', { class: 'bd-view bd-overview' }, reminder, dueSection, stats, period, pipeline, typeSection, byProduct, expiringSection);
 }

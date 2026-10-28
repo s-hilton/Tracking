@@ -1,7 +1,7 @@
 // Small building blocks shared by the LOIs app's views.
 import { h } from '../../../ui.js';
 import { PRODUCTS, CURRENCY, LOI_TYPES, goalTypes } from '../config.js';
-import { parseIso } from '../data.js';
+import { parseIso, loiTotalsByType } from '../data.js';
 
 const moneyFormat = new Intl.NumberFormat(undefined, { style: 'currency', currency: CURRENCY, maximumFractionDigits: 0 });
 export const money = (n, unknown = '—') => (n == null ? unknown : moneyFormat.format(n));
@@ -26,10 +26,27 @@ export const loiTypeTag = (type) => {
 };
 
 // A company's goal: the LOI tag(s) it's working towards, marked as a goal.
-export const goalTags = (goal) => goalTypes(goal).map((type) => {
-  const t = LOI_TYPES[type];
-  return h('span', { class: 'bd-type goal', style: `--chip:${t.color}`, title: `Goal: ${t.label}` }, '◎ ', t.short);
-});
+// Pass a goal value ('customer' | 'partnership' | 'both') or the result of companyGoal().
+export const goalTags = (goal) => {
+  const { types, fromLois } = typeof goal === 'object' && goal ? goal : { types: goalTypes(goal), fromLois: false };
+  return types.map((type) => {
+    const t = LOI_TYPES[type];
+    return h('span', { class: 'bd-type goal', style: `--chip:${t.color}`, title: fromLois ? `${t.label} (from this company's LOIs; set a goal on the company to change it)` : `Goal: ${t.label}` }, '◎ ', t.short);
+  });
+};
+
+// Customer vs partnership LOI totals as a small table (plus "Type not set" while any LOI lacks a type).
+export function loiTypeTable(product) {
+  const rows = loiTotalsByType(product);
+  const name = (type) => (LOI_TYPES[type] ? h('span', { class: 'bd-type', style: `--chip:${LOI_TYPES[type].color}` }, LOI_TYPES[type].short) : h('span', { class: 'muted' }, 'Type not set'));
+  const sum = (key) => rows.reduce((n, r) => n + r.totals[key], 0);
+  const cell = (value, count) => [h('td', { class: 'num' }, money(value)), h('td', { class: 'muted small' }, `${count} LOI${count === 1 ? '' : 's'}`)];
+  return h('div', { class: 'bd-table-wrap' }, h('table', { class: 'bd-table' },
+    h('thead', {}, h('tr', {}, h('th', {}, 'Type'), h('th', { class: 'num' }, 'Active signed'), h('th', {}), h('th', { class: 'num' }, 'Proposed'), h('th', {}))),
+    h('tbody', {},
+      ...rows.map(({ type, totals: t }) => h('tr', {}, h('td', {}, name(type)), ...cell(t.signedValue, t.signedCount), ...cell(t.proposedValue, t.proposedCount))),
+      h('tr', { class: 'total' }, h('td', {}, 'All LOIs'), ...cell(sum('signedValue'), sum('signedCount')), ...cell(sum('proposedValue'), sum('proposedCount'))))));
+}
 
 export const productChip = (key) => {
   const p = PRODUCTS[key];
