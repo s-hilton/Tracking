@@ -355,3 +355,43 @@ export function migrateLegacyLocalData() {
   remove('lois');
   remove('lois:outbox');
 }
+
+// ---- Import from a data backup (.json) -------------------------------------------------
+// Adds records from a file in the same shape as "Export → Data backup". Nothing already
+// in the tracker is overwritten: records whose id exists are skipped, and an incoming
+// company with the same name as an existing one is merged into it (its contacts,
+// opportunities and so on are attached to the existing company instead).
+export function importBackup(content) {
+  if (!content || typeof content !== 'object') throw new Error('This file is not an LOI tracker backup.');
+  const list = (k) => (Array.isArray(content[k]) ? content[k] : []);
+  const kinds = ['companies', 'contacts', 'opportunities', 'activities', 'tasks', 'lois'];
+  if (!kinds.some((k) => list(k).length)) throw new Error('No records found in this file.');
+
+  const now = Date.now();
+  const result = Object.fromEntries(kinds.map((k) => [k, { added: 0, skipped: 0 }]));
+  const companyIds = new Map(); // incoming id -> id in the tracker
+  const add = (store, kind, record) => {
+    if (!record?.id || store.get(record.id)) { result[kind].skipped += 1; return; }
+    store.upsert({ ...record, created: record.created ?? now, updated: record.updated ?? now });
+    result[kind].added += 1;
+  };
+
+  for (const c of list('companies')) {
+    const name = String(c?.name ?? '').trim();
+    if (!name) { result.companies.skipped += 1; continue; }
+    const existing = companies.get(c.id) ?? companies.all().find((x) => x.name.trim().toLowerCase() === name.toLowerCase());
+    if (existing) { companyIds.set(c.id, existing.id); result.companies.skipped += 1; continue; }
+    companyIds.set(c.id, c.id);
+    add(companies, 'companies', { ...c, name });
+  }
+
+  const company = (id) => (id ? companyIds.get(id) ?? (companies.get(id) ? id : '') : '');
+  for (const c of list('contacts')) {
+    const affiliations = Array.isArray(c.affiliations) ? c.affiliations.map((a) => ({ ...a, companyId: company(a.companyId) })) : c.affiliations;
+    add(contacts, 'contacts', { ...c, companyId: company(c.companyId), affiliations });
+  }
+  for (const [store, kind] of [[opportunities, 'opportunities'], [activities, 'activities'], [tasks, 'tasks'], [lois, 'lois']]) {
+    for (const r of list(kind)) add(store, kind, { ...r, companyId: company(r.companyId) });
+  }
+  return result;
+}

@@ -7,6 +7,7 @@
 //   form.js     the shared add/edit form
 //   editors.js  add/edit screens for each record type
 //   excel.js, xlsx.js  the Excel export and a small .xlsx writer
+//   (Import: data.js importBackup reads the same .json the backup export writes)
 //   analytics.js  conversion, velocity and trend calculations (date-filtered)
 //   views/      one file per tab (charts.js: the small chart kit)
 import { h, loadStyles } from '../../ui.js';
@@ -76,6 +77,30 @@ function exportMenu() {
       item('Excel workbook (.xlsx)', 'Every record, one sheet per kind', downloadWorkbook),
       item('Data backup (.json)', 'Every record, for safekeeping', backup)));
   return menu;
+}
+
+// Import a data backup (.json): adds records that aren't in the tracker yet.
+function importButton() {
+  const input = h('input', {
+    type: 'file',
+    accept: '.json,application/json',
+    hidden: true,
+    onchange: async () => {
+      const file = input.files?.[0];
+      input.value = '';
+      if (!file) return;
+      try {
+        const result = data.importBackup(JSON.parse(await file.text()));
+        const lines = Object.entries(result)
+          .filter(([, r]) => r.added || r.skipped)
+          .map(([kind, r]) => `${kind}: ${r.added} added${r.skipped ? `, ${r.skipped} already here (skipped)` : ''}`);
+        alert(`Import finished.\n\n${lines.join('\n')}`);
+      } catch (err) {
+        alert(`Couldn't import that file: ${err.message}`);
+      }
+    },
+  });
+  return h('span', {}, input, h('button', { class: 'btn ghost', title: 'Add records from a data backup (.json)', onclick: () => input.click() }, 'Import'));
 }
 
 export default {
@@ -156,6 +181,7 @@ export default {
           h('div', { class: 'seg bd-products', role: 'group', 'aria-label': 'Product' },
             ...[['all', 'All products'], ...Object.entries(PRODUCTS).map(([k, p]) => [k, p.short])].map(([k, label]) =>
               h('button', { class: state.product === k ? 'on' : '', title: PRODUCTS[k]?.label ?? 'Combined view', onclick: () => { state.product = k; render(); } }, label))),
+          importButton(),
           exportMenu()));
     }
 
