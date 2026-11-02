@@ -53,7 +53,7 @@ export function editFirm(host, firm, { roundId = '', onSaved } = {}) {
     title: firm ? `Edit ${firm.name}` : 'New investor',
     values: firm ?? {
       name: '', type: '', website: '', email: '', phone: '', linkedin: '', location: '', checkSize: '', focus: '',
-      contacts: [{ ...BLANK_PERSON }], introducedBy: '', tags: '', notes: '', wantsUpdates: false, lastUpdateSent: '',
+      contactUrl: '', contacts: [{ ...BLANK_PERSON }], introducedBy: '', tags: '', notes: '', wantsUpdates: false, lastUpdateSent: '',
       addTo: roundId, stage: 'to_contact',
     },
     fields: [
@@ -64,6 +64,7 @@ export function editFirm(host, firm, { roundId = '', onSaved } = {}) {
       { key: 'email', label: 'General email', type: 'email' },
       { key: 'phone', label: 'Phone', type: 'tel' },
       { key: 'linkedin', label: 'LinkedIn', placeholder: 'https://linkedin.com/company/…' },
+      { key: 'contactUrl', label: 'Contact page / pitch form', placeholder: 'https://…/contact' },
       { key: 'checkSize', label: 'Typical check', placeholder: 'e.g. $250k–$1M' },
       { key: 'focus', label: 'Focus', placeholder: 'Stages, sectors, geographies' },
       { key: 'introducedBy', label: 'Introduced by / source' },

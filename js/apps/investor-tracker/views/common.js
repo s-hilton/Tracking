@@ -31,8 +31,9 @@ export const empty = (text) => h('p', { class: 'muted inv-empty' }, text);
 export function webLink(url) {
   if (!url) return null;
   const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
-  return h('a', { class: 'inv-link', href, target: '_blank', rel: 'noopener noreferrer', onclick: (e) => e.stopPropagation() },
-    url.replace(/^https?:\/\//i, '').replace(/\/$/, ''));
+  const text = url.replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/$/, '');
+  return h('a', { class: 'inv-link', href, title: url, target: '_blank', rel: 'noopener noreferrer', onclick: (e) => e.stopPropagation() },
+    text.length > 42 ? `${text.slice(0, 40)}…` : text);
 }
 
 export const mailLink = (email) => (email ? h('a', { class: 'inv-link', href: `mailto:${email}` }, email) : null);

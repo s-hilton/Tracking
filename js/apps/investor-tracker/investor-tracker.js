@@ -7,6 +7,7 @@
 //   editors.js  add/edit screens
 //   views/      pipeline (one round by stage), investors (list + firm page), updates
 //   excel.js, xlsx.js  "Export to Excel" and a small .xlsx writer
+//   import.js   "Paste from spreadsheet": websites, emails and contact links for many investors at once
 //
 // Rounds: a firm can be in several rounds. When one passes with "keep in mind",
 // the next round's pipeline offers to carry them over.

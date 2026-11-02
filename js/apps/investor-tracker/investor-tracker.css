@@ -133,3 +133,20 @@
 @media (prefers-color-scheme: light) {
   :root[data-theme="auto"] .inv { --pill-info: #0284c7; --pill-warn: #b45309; --pill-good: #047857; --pill-bad: #dc2626; }
 }
+
+/* Paste from spreadsheet */
+.inv-panel.inv-import { width: min(1000px, 100%); }
+.inv-paste { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; resize: vertical; white-space: pre; }
+.inv-import-options { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; }
+.inv-import-round { width: auto; padding: 3px 6px; font-size: 12px; }
+.inv-import-summary { margin: 0; }
+.inv-import-summary:empty { display: none; }
+.inv-import-preview { max-height: 46vh; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
+.inv-import-preview:empty { display: none; }
+.inv-import-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.inv-import-table th { position: sticky; top: 0; z-index: 1; padding: 6px 8px; background: var(--surface-2); color: var(--muted); text-align: left; font-weight: 600; white-space: nowrap; }
+.inv-import-table td { padding: 5px 8px; border-top: 1px solid var(--border); vertical-align: top; overflow-wrap: anywhere; }
+.inv-import-table td.new { color: var(--pill-good); font-weight: 600; }
+.inv-import-table tr.nochange td, .inv-import-table tr.missing td { opacity: 0.6; }
+.inv-import-table tr.adding td:first-child strong { color: var(--pill-info); }
+.inv-import-flag { color: var(--pill-warn); }

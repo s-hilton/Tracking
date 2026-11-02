@@ -14,7 +14,7 @@ const dateTime = (ms) => (ms ? { dateTime: ms } : '');
 const money = (n) => (n == null || n === '' ? '' : { money: n });
 const link = (url) => (url ? { url: /^https?:\/\//i.test(url) ? url : `https://${url}`, text: url } : '');
 const col = (header, width) => ({ header, width });
-const people = (f) => (f.contacts ?? []).filter((p) => p.name || p.email);
+const people = (f) => (f.contacts ?? []).filter((p) => p.name || p.email || p.linkedin);
 const emojiless = (s) => String(s).replace(/^\P{L}+\s*/u, ''); // "✉️ Email" → "Email"
 
 // Rounds in the app's order (newest first), so sheets sort the same way.
@@ -52,7 +52,7 @@ function investorsSheet() {
   return {
     name: 'Investors',
     columns: [col('Investor', 28), col('Type', 18), col('Website', 26), col('General email', 26), col('Phone', 16),
-      col('LinkedIn', 26), col('Location', 18), col('Typical check', 16), col('Focus', 30), col('Main person', 22),
+      col('LinkedIn', 26), col('Contact page', 30), col('Location', 18), col('Typical check', 16), col('Focus', 30), col('Main person', 22),
       col('Their title', 18), col('Their email', 28), col('Their phone', 16), col('Other people', 30),
       col('Latest round', 14), col('Latest stage', 16), col('Rounds', 24), col('Wants updates', 12),
       col('Last update sent', 14), col('Introduced by', 18), col('Tags', 20), col('Info & notes', 50), col('Added', 18)],
@@ -61,8 +61,8 @@ function investorsSheet() {
         .sort((a, b) => (order.get(a.roundId) ?? 99) - (order.get(b.roundId) ?? 99));
       const [main, ...others] = people(f);
       return [
-        f.name, label(INVESTOR_TYPES, f.type), link(f.website), f.email, f.phone, link(f.linkedin), f.location, f.checkSize,
-        f.focus, main?.name ?? '', main?.title ?? '', main?.email ?? '', main?.phone ?? '',
+        f.name, label(INVESTOR_TYPES, f.type), link(f.website), f.email, f.phone, link(f.linkedin), link(f.contactUrl), f.location, f.checkSize,
+        f.focus, main?.name || main?.email || '', main?.title ?? '', main?.email ?? '', main?.phone ?? '',
         others.map((p) => [p.name, p.title && `(${p.title})`, p.email].filter(Boolean).join(' ')).join('; '),
         list[0] ? roundName(list[0].roundId) : '', list[0] ? label(STAGES, list[0].stage) : '',
         list.map((o) => `${roundName(o.roundId)}: ${label(STAGES, o.stage)}`).join(', '),
@@ -77,7 +77,7 @@ function peopleSheet() {
     name: 'People',
     columns: [col('Name', 24), col('Investor', 28), col('Title', 20), col('Email', 30), col('Phone', 16), col('LinkedIn', 30)],
     rows: firms.all().slice().sort(byName).flatMap((f) => people(f).map((p) => [
-      p.name, f.name, p.title, p.email, p.phone, link(p.linkedin),
+      p.name || '(name not set)', f.name, p.title, p.email, p.phone, link(p.linkedin),
     ])),
   };
 }

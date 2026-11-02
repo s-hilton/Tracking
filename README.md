@@ -19,7 +19,7 @@ A personal dashboard that works like a desktop: tap an icon and the app opens in
 | Clock | Time, date and a stopwatch with laps |
 | Settings | Theme, wallpaper, accent colour, web apps, install, reset |
 | LOIs *(Astra Retrieval folder)* | Astra Retrieval business development: companies, pipeline, LOIs, follow-ups, analytics |
-| Investors *(Astra Retrieval folder)* | Fundraising tracker: rounds, investors with contact info and people, stages (to contact → contacted → following up → meeting → due diligence → term sheet → committed / passed), why they passed, "keep in mind" firms carried into the next round, an investor-update list, and Export to Excel |
+| Investors *(Astra Retrieval folder)* | Fundraising tracker: rounds, investors with contact info and people, stages (to contact → contacted → following up → meeting → due diligence → term sheet → committed / passed), why they passed, "keep in mind" firms carried into the next round, an investor-update list, Paste from spreadsheet (websites, emails, contact links) and Export to Excel |
 
 **Web apps:** in Settings → Web apps you can add any website. It gets the site's own icon, and it opens inside a window. Some sites (Google, Facebook, banks, …) refuse to be shown inside other pages. For those, use the **Open in tab** button in the window's toolbar.
 
@@ -84,7 +84,7 @@ js/apps/loi-tracker/          the LOIs app (inside Astra Retrieval): Astra Retri
 js/apps/investor-tracker/     the Investors app (inside Astra Retrieval): fundraising rounds and investor outreach
                                 config.js (stages, pass reasons, reminder days), data.js, form.js, editors.js,
                                 views/ (pipeline, investors + firm page, updates),
-                                excel.js + xlsx.js (Export to Excel)  ⇄ supabase/migrations/*_investors.sql
+                                excel.js + xlsx.js (Export to Excel), import.js (Paste from spreadsheet)  ⇄ supabase/migrations/*_investors.sql
 js/folder.js                  createFolder() helper used by folders
 js/todos.js                   the dashboard's to-do sticky note (gathers every app's todos())
 js/intents.js                 open an app at a particular record (used by the sticky note)
