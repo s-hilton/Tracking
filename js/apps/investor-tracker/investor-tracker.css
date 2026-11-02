@@ -1,11 +1,12 @@
 /* ---- App: Investors (investor-tracker) ---- */
 .inv { position: relative; display: flex; flex-direction: column; min-height: 0; }
 
-.inv-nav { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+.inv-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
 .inv-tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
 .inv-tab { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border: 0; border-radius: 8px; background: none; color: var(--muted); font-weight: 600; white-space: nowrap; }
 .inv-tab:hover { background: var(--surface-3); color: var(--text); }
 .inv-tab.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); }
+.inv-export { flex-shrink: 0; }
 .inv-count { min-width: 18px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
 
 .inv-content { flex: 1; min-height: 0; overflow-y: auto; }

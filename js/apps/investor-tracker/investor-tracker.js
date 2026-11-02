@@ -6,6 +6,7 @@
 //   form.js     the shared add/edit panel
 //   editors.js  add/edit screens
 //   views/      pipeline (one round by stage), investors (list + firm page), updates
+//   excel.js, xlsx.js  "Export to Excel" and a small .xlsx writer
 //
 // Rounds: a firm can be in several rounds. When one passes with "keep in mind",
 // the next round's pipeline offers to carry them over.
@@ -17,6 +18,7 @@ import { UPDATE_EVERY_DAYS } from './config.js';
 import { pipeline } from './views/pipeline.js';
 import { investorList, firmPage } from './views/investors.js';
 import { updates } from './views/updates.js';
+import { downloadWorkbook } from './excel.js';
 
 loadStyles(new URL('./investor-tracker.css', import.meta.url));
 
@@ -119,7 +121,12 @@ export default {
           role: 'tab',
           'aria-selected': String(current === key),
           onclick: () => ctx.go(key),
-        }, tab.label, counts[key] ? h('span', { class: 'inv-count' }, String(counts[key])) : null))));
+        }, tab.label, counts[key] ? h('span', { class: 'inv-count' }, String(counts[key])) : null))),
+      h('button', {
+        class: 'btn ghost inv-export',
+        title: 'Download every round, investor, person and update as an Excel workbook',
+        onclick: downloadWorkbook,
+      }, 'Export to Excel'));
     }
 
     let pending = false;
