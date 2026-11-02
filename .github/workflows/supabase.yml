@@ -1,7 +1,7 @@
 # Applies the SQL files in supabase/migrations to your Supabase project.
 #
 #  - Pull request touching supabase/: shows what WOULD be applied (dry run).
-#  - Push to main touching supabase/: applies new migrations for real.
+#  - Push to main touching supabase/: applies new migrations for real (--yes: CI can't answer the prompt).
 #  - Actions tab → "Supabase database" → Run workflow: apply on demand.
 #
 # Needs three repository secrets (Settings → Secrets and variables → Actions):
@@ -57,4 +57,4 @@ jobs:
 
       - name: Apply migrations
         if: steps.secrets.outputs.ready == 'true' && github.event_name != 'pull_request'
-        run: supabase db push --remote
+        run: supabase db push --remote --yes
