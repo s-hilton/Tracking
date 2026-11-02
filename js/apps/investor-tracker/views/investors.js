@@ -6,6 +6,7 @@ import {
   firms, activities, outreachFor, activitiesFor, roundName, rounds, sortedRounds, byName, setStage, lastTouch,
   carryOverCandidates, carryOver,
 } from '../data.js';
+import { openPasteImport } from '../import.js';
 import { editFirm, editOutreach, passForm, addFirmToRound, logForm, stageSelect } from '../editors.js';
 import { money, fmtDate, ago, pill, stagePill, section, empty, webLink, mailLink, telLink } from './common.js';
 
@@ -40,7 +41,7 @@ export function investorList(ctx) {
   const query = (ctx.state.firmSearch ?? '').trim().toLowerCase();
   const list = firms.all()
     .filter((f) => matches(f, filter))
-    .filter((f) => !query || [f.name, f.tags, f.focus, f.location, f.notes, ...(f.contacts ?? []).map((p) => `${p.name} ${p.email}`)].join(' ').toLowerCase().includes(query))
+    .filter((f) => !query || [f.name, f.website, f.email, f.tags, f.focus, f.location, f.notes, ...(f.contacts ?? []).map((p) => `${p.name} ${p.email}`)].join(' ').toLowerCase().includes(query))
     .sort(byName);
 
   view.append(
@@ -49,6 +50,7 @@ export function investorList(ctx) {
         class: 'input', type: 'search', placeholder: 'Search investors, people, tags…', value: ctx.state.firmSearch ?? '',
         oninput: (e) => { ctx.state.firmSearch = e.target.value; ctx.refresh({ keepFocus: true }); },
       }),
+      h('button', { class: 'btn', title: 'Fill in websites, emails and contact links from your spreadsheet', onclick: () => openPasteImport(ctx.host, { roundId: ctx.state.roundId }) }, 'Paste from spreadsheet'),
       h('button', { class: 'btn primary', onclick: () => editFirm(ctx.host, null, { roundId: ctx.state.roundId, onSaved: (f) => ctx.go('firm', { firmId: f.id }) }) }, '+ New investor')),
     h('div', { class: 'inv-chips', role: 'group', 'aria-label': 'Filter' }, ...Object.entries(FILTERS).map(([key, label]) =>
       h('button', { class: `inv-chip${key === filter ? ' on' : ''}`, onclick: () => { ctx.state.filter = key; ctx.refresh(); } }, label))));
@@ -135,6 +137,7 @@ export function firmPage(ctx) {
       infoItem('Email', mailLink(firm.email)),
       infoItem('Phone', telLink(firm.phone)),
       infoItem('LinkedIn', webLink(firm.linkedin)),
+      infoItem('Contact page', webLink(firm.contactUrl)),
       infoItem('Location', firm.location),
       infoItem('Typical check', firm.checkSize),
       infoItem('Focus', firm.focus),
@@ -145,7 +148,7 @@ export function firmPage(ctx) {
 
     section('People', null, (firm.contacts ?? []).length
       ? h('ul', { class: 'inv-people' }, ...firm.contacts.map((p) => h('li', { class: 'inv-person' },
-        h('strong', {}, p.name || 'Unnamed'), p.title ? h('span', { class: 'muted small' }, p.title) : null,
+        h('strong', {}, p.name || p.email || (p.linkedin ? 'LinkedIn profile' : 'Unnamed')), p.title ? h('span', { class: 'muted small' }, p.title) : null,
         h('div', { class: 'inv-person-links small' }, mailLink(p.email), telLink(p.phone), webLink(p.linkedin)))))
       : empty('No people yet. Use Edit to add the partner or angel you talk to.')),
 

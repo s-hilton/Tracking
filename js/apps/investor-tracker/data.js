@@ -48,6 +48,7 @@ export const firms = define('investor_firms', 'inv:firms', {
   email: ['email', 'text'],
   phone: ['phone', 'text'],
   linkedin: ['linkedin', 'text'],
+  contactUrl: ['contact_url', 'text'], // contact page or pitch form
   location: ['location', 'text'],
   checkSize: ['check_size', 'text'],
   focus: ['focus', 'text'],
