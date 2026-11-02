@@ -53,8 +53,8 @@ jobs:
 
       - name: Preview migrations (pull request)
         if: steps.secrets.outputs.ready == 'true' && github.event_name == 'pull_request'
-        run: supabase db push --dry-run
+        run: supabase db push --remote --dry-run
 
       - name: Apply migrations
         if: steps.secrets.outputs.ready == 'true' && github.event_name != 'pull_request'
-        run: supabase db push
+        run: supabase db push --remote

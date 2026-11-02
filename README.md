@@ -6,7 +6,7 @@ A personal dashboard that works like a desktop: tap an icon and the app opens in
 - **Phone:** you get a home screen of icons. Apps open full screen, and the bottom bar has **All apps**, **Home** and **Open apps** (switcher) buttons.
 - **Installable:** it's a Progressive Web App (PWA), so it can be added to a phone home screen or installed on a computer, opens without browser chrome and keeps working offline.
 
-**To-do sticky note:** the dashboard has a sticky note that gathers what needs doing from every app: Rolodex follow-ups, LOI follow-up tasks and quiet companies, unfinished Tasks. Tick an item to finish it, or tap it to jump straight to it in its app. Tap "To do" to fold the note away.
+**To-do sticky note:** the dashboard has a sticky note that gathers what needs doing from every app: Rolodex follow-ups, LOI follow-up tasks and quiet companies, investor follow-ups and updates owed, unfinished Tasks. Tick an item to finish it, or tap it to jump straight to it in its app. Tap "To do" to fold the note away.
 
 ## Built-in apps
 
@@ -18,6 +18,8 @@ A personal dashboard that works like a desktop: tap an icon and the app opens in
 | Calculator | Basic calculator (keyboard supported) |
 | Clock | Time, date and a stopwatch with laps |
 | Settings | Theme, wallpaper, accent colour, web apps, install, reset |
+| LOIs *(Astra Retrieval folder)* | Astra Retrieval business development: companies, pipeline, LOIs, follow-ups, analytics |
+| Investors *(Astra Retrieval folder)* | Fundraising tracker: rounds, investors with contact info and people, stages (to contact → contacted → following up → meeting → due diligence → term sheet → committed / passed), why they passed, "keep in mind" firms carried into the next round, and an investor-update list |
 
 **Web apps:** in Settings → Web apps you can add any website. It gets the site's own icon, and it opens inside a window. Some sites (Google, Facebook, banks, …) refuse to be shown inside other pages. For those, use the **Open in tab** button in the window's toolbar.
 
@@ -79,6 +81,9 @@ js/apps/astra-retrieval/      Astra Retrieval folder (logo + list of apps inside
 js/apps/loi-tracker/          the LOIs app (inside Astra Retrieval): Astra Retrieval business development
                                 config.js (products, use cases, stages, reminder days), data.js, form.js,
                                 editors.js, views/  ⇄ supabase/migrations/*_lois.sql, *_business_development.sql
+js/apps/investor-tracker/     the Investors app (inside Astra Retrieval): fundraising rounds and investor outreach
+                                config.js (stages, pass reasons, reminder days), data.js, form.js, editors.js,
+                                views/ (pipeline, investors + firm page, updates)  ⇄ supabase/migrations/*_investors.sql
 js/folder.js                  createFolder() helper used by folders
 js/todos.js                   the dashboard's to-do sticky note (gathers every app's todos())
 js/intents.js                 open an app at a particular record (used by the sticky note)
@@ -166,7 +171,7 @@ return () => offIntent();
 ```
 
 Keep `todos()` fast and only include things that need doing now (due today or overdue), not everything in the app.
-When the data changes, fire `window.dispatchEvent(new Event('badges-changed'))` (e.g. in a `store.subscribe`) so the note and icon badges refresh. The Rolodex, LOIs and Tasks apps are working examples.
+When the data changes, fire `window.dispatchEvent(new Event('badges-changed'))` (e.g. in a `store.subscribe`) so the note and icon badges refresh. The Rolodex, LOIs, Investors and Tasks apps are working examples.
 
 **Badges and reminders:** an app can add `badge: () => number` (a red count on its icon; folders show the total of their apps) and `reminder: () => 'message' | null` (shown as a pop-up once a day when the dashboard opens). The LOIs app uses both for companies needing a follow-up.
 
