@@ -12,9 +12,9 @@ name: Supabase database
 on:
   push:
     branches: [main]
-    paths: ['supabase/**']
+    paths: ['supabase/**', '.github/workflows/supabase.yml']
   pull_request:
-    paths: ['supabase/**']
+    paths: ['supabase/**', '.github/workflows/supabase.yml']
   workflow_dispatch:
 
 concurrency:
