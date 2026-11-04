@@ -54,12 +54,14 @@ export const COVERAGE = {
     { name: 'Public land owned by local governments', source: 'USGS PAD-US, Protected Areas Database (live)', note: 'Parks, open space, preserves and other conservation land owned by cities, counties, towns and special districts (e.g. park districts). Includes acreage, owner name and public access.' },
     { name: 'Libraries, town halls, community centres, fire stations', source: 'OpenStreetMap via Overpass (live)', note: 'Mapped by volunteers; ownership is not confirmed, so check county records before reaching out.' },
     { name: 'Power lines and substations', source: 'OpenStreetMap via Overpass (live)', note: 'Shown on the map when zoomed in; the distance to the nearest line and substation is worked out when you open a site.' },
+    { name: 'Universities & colleges', source: 'US Dept. of Education IPEDS directory, via the Urban Institute Education Data API (live; OpenStreetMap if unreachable)', note: 'Every degree-granting college: public/private, 2- or 4-year, size, website, phone, HBCU / tribal college / land-grant flags.' },
+    { name: 'Tribal nations', source: 'US Census Bureau TIGERweb, American Indian areas (live)', note: 'Reservations, off-reservation trust lands and tribal statistical areas, with land area. Leaders: BIA Tribal Leaders Directory link.' },
+    { name: 'Museums & planetariums', source: 'OpenStreetMap via Overpass (live)', note: 'Filter to science, space and planetariums.' },
+    { name: 'Government & institution contacts and leadership', source: 'Wikidata (live)', note: 'Official website, phone and current head (mayor, county executive, university president) where volunteers have recorded them: good for cities and universities, patchy for small towns and counties; search links fill the gaps.' },
     { name: 'Broadband / fiber', source: 'FCC National Broadband Map (link)', note: 'The FCC has no free live feed for apps, so each site links to the FCC map at that spot.' },
   ],
   parcels: 'In these states, when you zoom in to street level Land Search works out which county you’re in, searches ArcGIS Online for that county’s (or the state’s) free parcel service, and keeps the best one that has an owner-name field and covers the county. It then shows every parcel whose owner reads like a local government: cities, counties, towns, townships, boroughs, villages, school districts, housing authorities and special districts (state, federal and private owners are left out). Claude couldn’t test individual county services from its own environment, so each county’s source is found and checked in your browser the first time you look; if one is wrong you can switch it from the map, and tell Claude so it can be pinned.',
   pending: [
-    { name: 'Universities & colleges, tribal nations, museums', where: 'Nationwide', when: 'Stage 3' },
-    { name: 'Government website, phone and current leadership', where: 'Nationwide (where free data has it)', when: 'Stage 3' },
     { name: 'Saved sites, outreach pipeline, follow-ups on the sticky note', where: '—', when: 'Stage 4' },
   ],
 };

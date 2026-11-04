@@ -6,14 +6,20 @@
 //   sources.js        live data: Census boundaries, PAD-US, OpenStreetMap, power grid
 //   geo.js            geometry helpers (point in polygon, acres, distances)
 //   map-view.js       the Map tab
+//   parcels.js        stage 2: finds each county's parcel service, picks out government owners
+//   institutions.js   stage 3: colleges (IPEDS), tribal lands (Census), museums (OpenStreetMap)
+//   contacts.js       government / institution websites, phones and leadership (Wikidata)
+//   institutions-view.js  the Institutions tab
+//   leaflet.js        loads the map library
 //   coverage-view.js  the Coverage tab (what's connected, what's next)
 //
-// Built in stages: 1 map + filters + public land (this), 2 parcels for the Southwest
+// Built in stages: 1 map + filters + public land, 2 parcels for the Southwest
 // and Northeast, 3 institutions + government contacts, 4 saved sites + pipeline.
 import { h, loadStyles } from '../../ui.js';
 import { load, save } from '../../storage.js';
 import { mapView } from './map-view.js';
 import { coverageView } from './coverage-view.js';
+import { institutionsView } from './institutions-view.js';
 
 loadStyles(new URL('./land-search.css', import.meta.url));
 
@@ -24,7 +30,7 @@ const soon = (title, stage, text) => () => ({
 
 const TABS = {
   map: { label: 'Map', view: mapView },
-  institutions: { label: 'Institutions', view: soon('Institutions', 'Stage 3', 'Universities and colleges, tribal nations and museums, filterable by state, county and city, each with its website and contact details, and a button to save it to your pipeline.') },
+  institutions: { label: 'Institutions', view: institutionsView },
   pipeline: { label: 'Pipeline', view: soon('Pipeline', 'Stage 4', 'Saved sites and institutions moving through found → contacted → talking → agreement (or declined), with your contacts, notes and follow-up dates that show up on the dashboard’s to-do sticky note.') },
   coverage: { label: 'Coverage', view: (ctx) => ({ el: coverageView(ctx) }) },
 };

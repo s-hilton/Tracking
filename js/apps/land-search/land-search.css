@@ -86,3 +86,7 @@
 .land-switch ul { margin: 4px 0 0; padding-left: 16px; display: grid; gap: 3px; }
 .land-switch .link-btn { font-size: 12px; text-align: left; }
 .land-chip.auto { border-color: #0ea5e9; }
+.land-govs { display: grid; gap: 8px; }
+.land-gov { display: grid; gap: 3px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; }
+.land-gov .land-links { margin-top: 3px; }
+.land-search-box { width: 100%; }

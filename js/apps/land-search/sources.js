@@ -132,6 +132,22 @@ export async function municipalities(stateFips, countyFips, countyRings, signal)
   });
 }
 
+// The city / town a point is in, if any (incorporated place first, then a
+// county subdivision that is a functioning government).
+export async function municipalityAt({ lat, lng }, signal) {
+  const point = { geometry: `${lng},${lat}`, geometryType: 'esriGeometryPoint', inSR: 4326, spatialRel: 'esriSpatialRelIntersects', outFields: '*', returnGeometry: false };
+  for (const [test, kind] of [[/incorporated places/i, 'place'], [/county subdivisions/i, 'cousub']]) {
+    const layer = await findLayer(PLACES, test);
+    const d = await queryLayer(layer, point, signal);
+    const a = d.features?.[0]?.attributes;
+    const status = attr(a, 'FUNCSTAT');
+    if (a && (!status || GOVERNMENT.has(status))) {
+      return { kind, geoid: String(attr(a, 'GEOID')), name: attr(a, 'NAME', 'BASENAME'), stateFips: String(attr(a, 'STATE')).padStart(2, '0') };
+    }
+  }
+  return null;
+}
+
 export async function municipalityShape(m, signal) {
   const d = await queryLayer(m.layer, { where: `GEOID='${m.geoid}'`, outFields: 'NAME', returnGeometry: true, maxAllowableOffset: 0.0005 }, signal);
   return fromEsriRings(d.features?.[0]?.geometry?.rings);

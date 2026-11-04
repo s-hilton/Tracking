@@ -1,29 +1,18 @@
 // The Map tab: filters on the left (state → county → municipality, layers, size),
 // the map on the right. Data for whatever is on screen loads live as you move.
-import { h, loadStyles } from '../../ui.js';
+import { h } from '../../ui.js';
+import { loadLeaflet, BASEMAPS } from './leaflet.js';
 import { STATES, stateByFips, parcelStatus, regionOf } from './config.js';
 import * as src from './sources.js';
 import { boundsOf, pointInRings, formatAcres, formatDistance } from './geo.js';
 import { parcelService, governmentParcels, chooseParcelService } from './parcels.js';
-
-const LEAFLET = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist';
-let leafletPromise = null;
-function loadLeaflet() {
-  loadStyles(`${LEAFLET}/leaflet.css`);
-  leafletPromise ??= import(`${LEAFLET}/leaflet-src.esm.js`).catch((err) => { leafletPromise = null; throw err; });
-  return leafletPromise;
-}
+import { countyContacts, municipalityContacts, searchUrl } from './contacts.js';
 
 // Each layer loads once you're zoomed in this far (keeps requests small).
 const MIN_ZOOM = { land: 9, buildings: 12, power: 11, parcels: 14 };
 const LAND_COLOR = '#16a34a';
 const POWER_COLOR = '#ea580c';
 const PARCEL_COLOR = '#db2777';
-
-const BASEMAPS = {
-  map: { label: 'Map', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', max: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' },
-  satellite: { label: 'Satellite', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', max: 19, attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics' },
-};
 
 export function mapView(ctx) {
   const ui = ctx.state;
@@ -40,8 +29,8 @@ export function mapView(ctx) {
   let data = { land: [], buildings: [], power: null, parcels: [] };
   let status = { land: '', buildings: '', power: '', parcels: '' };
   let parcelInfo = null; // { county, status, service, candidates } for the county in view
-  let selected = null; let selectedPower = null;
-  let loadCtl = null; let pickCtl = null; let powerCtl = null;
+  let selected = null; let selectedPower = null; let selectedGov = null;
+  let loadCtl = null; let pickCtl = null; let powerCtl = null; let govCtl = null;
 
   const mapEl = h('div', { class: 'land-map', role: 'region', 'aria-label': 'Map of publicly owned land' });
   const side = h('aside', { class: 'land-side' });
@@ -349,7 +338,7 @@ export function mapView(ctx) {
   // ---- A selected site ---------------------------------------------------
 
   function select(f, { fly = false } = {}) {
-    selected = f; selectedPower = null;
+    selected = f; selectedPower = null; selectedGov = null;
     draw();
     side.scrollTo({ top: results.offsetTop - side.offsetTop, behavior: 'smooth' });
     if (fly && map && f.center) {
@@ -364,9 +353,55 @@ export function mapView(ctx) {
         .then((r) => { if (selected === f) { selectedPower = r; renderSide(); } })
         .catch((err) => { if (!signal.aborted && selected === f) { selectedPower = { error: err.message }; renderSide(); } });
     }
+    govCtl?.abort(); govCtl = new AbortController();
+    if (f.center) loadGovernments(f, govCtl.signal);
   }
 
-  function closeDetail() { selected = null; powerCtl?.abort(); draw(); }
+  // The county and city/town at a site, with contacts and leadership from Wikidata.
+  async function loadGovernments(f, signal) {
+    selectedGov = 'loading';
+    const done = () => { if (selected === f) renderSide(); };
+    try {
+      const [county, muni] = await Promise.all([src.countyAt(f.center, signal), src.municipalityAt(f.center, signal)]);
+      const st = county && stateByFips(county.stateFips);
+      const govs = [];
+      if (muni) govs.push({ label: muni.name, kind: 'City / town', lookup: () => municipalityContacts(muni, signal) });
+      if (county) govs.push({ label: `${county.name}${st ? `, ${st.abbr}` : ''}`, kind: 'County', lookup: () => countyContacts(county.stateFips, county.fips, signal) });
+      selectedGov = govs.map((g) => ({ ...g, info: 'loading' }));
+      done();
+      await Promise.all(selectedGov.map(async (g) => {
+        try { g.info = await g.lookup(); } catch (err) { if (signal.aborted) return; g.info = { error: err.message }; }
+        done();
+      }));
+    } catch (err) {
+      if (!signal.aborted) { selectedGov = { error: err.message }; done(); }
+    }
+  }
+
+  function governments() {
+    if (!selectedGov) return null;
+    if (selectedGov === 'loading') return h('p', { class: 'muted small' }, 'Finding the city/town and county here…');
+    if (selectedGov.error) return h('p', { class: 'land-err small' }, `Couldn’t look up the local government: ${selectedGov.error}`);
+    if (!selectedGov.length) return h('p', { class: 'muted small' }, 'No local government found at this spot.');
+    const link = (href, label) => h('a', { class: 'land-link', href, target: '_blank', rel: 'noopener' }, label);
+    return h('div', { class: 'land-govs' }, ...selectedGov.map((g) => {
+      const i = g.info && g.info !== 'loading' && !g.info.error ? g.info : null;
+      const council = g.kind === 'County' ? 'board of supervisors commissioners' : 'mayor city council members';
+      return h('div', { class: 'land-gov' },
+        h('strong', {}, g.label), h('span', { class: 'muted small' }, ` · ${g.kind}`),
+        g.info === 'loading' ? h('div', { class: 'muted small' }, 'Looking up on Wikidata…') : null,
+        g.info?.error ? h('div', { class: 'land-err small' }, `Wikidata: ${g.info.error}`) : null,
+        i?.leaders?.length ? h('div', { class: 'small' }, `${i.office ?? 'Head of government'}: `, i.leaders.map((l) => `${l.name}${l.since ? ` (since ${l.since})` : ''}`).join(', ')) : null,
+        i?.phone ? h('div', { class: 'small' }, `Phone: ${i.phone}`) : null,
+        g.info !== 'loading' && !i?.leaders?.length ? h('div', { class: 'muted small' }, 'Current leadership not on Wikidata; use the links below.') : null,
+        h('div', { class: 'land-links' },
+          i?.website ? link(i.website, 'Official website') : link(searchUrl(`${g.label} official government website`), 'Find official website'),
+          link(searchUrl(`${g.label} ${council}`), g.kind === 'County' ? 'Commissioners / supervisors' : 'Mayor & council'),
+          i?.wikidata ? link(i.wikidata, 'Wikidata') : null));
+    }));
+  }
+
+  function closeDetail() { selected = null; powerCtl?.abort(); govCtl?.abort(); draw(); }
 
   function detail(f) {
     const row = (label, value) => (value ? h('div', { class: 'land-row' }, h('dt', {}, label), h('dd', {}, value)) : null);
@@ -407,6 +442,8 @@ export function mapView(ctx) {
       power,
       h('div', { class: 'land-links' },
         f.center ? link(src.fccBroadbandUrl(f.center), 'Broadband / fiber at this spot (FCC map)') : null),
+      h('h4', {}, 'Government here'),
+      governments(),
       h('h4', {}, 'Reach out'),
       h('div', { class: 'land-links' },
         f.website ? link(f.website, 'Website') : null,
@@ -415,7 +452,7 @@ export function mapView(ctx) {
         owner ? link(search(`${owner} real estate property management department`), 'Real estate / property office') : null,
         owner ? link(search(`${owner} public works department contact`), 'Public works') : null,
         !owner && place ? link(search(`${place} government property contact`), `Search ${place} government`) : null),
-      h('p', { class: 'muted small' }, 'Leadership and phone numbers arrive in stage 3, “Save as site” in stage 4.'),
+      h('p', { class: 'muted small' }, '“Save as site” arrives in stage 4.'),
       h('h4', {}, 'Look at it'),
       h('div', { class: 'land-links' },
         f.center ? link(`https://www.google.com/maps/@?api=1&map_action=map&center=${lat},${lng}&zoom=18&basemap=satellite`, 'Google Maps satellite') : null,
@@ -461,7 +498,7 @@ export function mapView(ctx) {
     el,
     destroy() {
       destroyed = true; clearTimeout(reloadTimer);
-      [loadCtl, pickCtl, powerCtl].forEach((c) => c?.abort());
+      [loadCtl, pickCtl, powerCtl, govCtl].forEach((c) => c?.abort());
       resize?.disconnect(); map?.remove();
     },
   };
