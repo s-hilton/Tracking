@@ -19,6 +19,7 @@ A personal dashboard that works like a desktop: tap an icon and the app opens in
 | Clock | Time, date and a stopwatch with laps |
 | Settings | Theme, wallpaper, accent colour, web apps, install, reset |
 | LOIs *(Astra Retrieval folder)* | Astra Retrieval business development: companies, pipeline, LOIs, follow-ups, analytics |
+| Land Search *(Astra Retrieval folder)* | Find land owned by local governments for ground stations: a map with state → county → city/town filters, local-government parks and open space (USGS PAD-US), libraries, town halls, community centres and fire stations (OpenStreetMap), a size filter, power lines and substations with the distance from each site, an FCC broadband link, and links for reaching the owner. All data is live from public sources; the **Coverage** tab notes what's connected and what's next (county parcels for the Southwest and Northeast, institutions, pipeline) |
 | Investors *(Astra Retrieval folder)* | Fundraising tracker: rounds, investors with contact info and people, stages (to contact → contacted → following up → meeting → due diligence → term sheet → committed / passed), why they passed, "keep in mind" firms carried into the next round, an investor-update list, Paste from spreadsheet (websites, emails, contact links) and Export to Excel |
 
 **Web apps:** in Settings → Web apps you can add any website. It gets the site's own icon, and it opens inside a window. Some sites (Google, Facebook, banks, …) refuse to be shown inside other pages. For those, use the **Open in tab** button in the window's toolbar.
@@ -85,6 +86,9 @@ js/apps/investor-tracker/     the Investors app (inside Astra Retrieval): fundra
                                 config.js (stages, pass reasons, reminder days), data.js, form.js, editors.js,
                                 views/ (pipeline, investors + firm page, updates),
                                 excel.js + xlsx.js (Export to Excel), import.js (Paste from spreadsheet)  ⇄ supabase/migrations/*_investors.sql
+js/apps/land-search/         the Land Search app (inside Astra Retrieval): config.js (states, focus regions, parcel
+                                services, the Coverage note), sources.js (live Census / PAD-US / OpenStreetMap data),
+                                geo.js, map-view.js, coverage-view.js   (no data stored yet)
 js/folder.js                  createFolder() helper used by folders
 js/todos.js                   the dashboard's to-do sticky note (gathers every app's todos())
 js/intents.js                 open an app at a particular record (used by the sticky note)

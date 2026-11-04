@@ -19,9 +19,10 @@ import settings from './settings/settings.js';
 import astraRetrieval from './astra-retrieval/astra-retrieval.js';
 import loiTracker from './loi-tracker/loi-tracker.js';
 import investorTracker from './investor-tracker/investor-tracker.js';
+import landSearch from './land-search/land-search.js';
 import rolodex from './rolodex/rolodex.js';
 
-const APPS = [notes, tasks, rolodex, calculator, clock, settings, astraRetrieval, loiTracker, investorTracker, webApps];
+const APPS = [notes, tasks, rolodex, calculator, clock, settings, astraRetrieval, loiTracker, investorTracker, landSearch, webApps];
 
 const withDefaults = (app) => ('requiresSignIn' in app ? app : { ...app, requiresSignIn: true });
 
