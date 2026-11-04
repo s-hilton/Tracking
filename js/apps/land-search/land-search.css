@@ -90,3 +90,50 @@
 .land-gov { display: grid; gap: 3px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; }
 .land-gov .land-links { margin-top: 3px; }
 .land-search-box { width: 100%; }
+
+/* Stage 4: saving and the pipeline */
+.land-count { margin-left: 6px; min-width: 18px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: #fff; font-size: 11px; line-height: 18px; text-align: center; display: inline-block; }
+.land-detail > .btn { justify-self: start; }
+.land-saved { border-color: #f59e0b; }
+.land-star-wrap { background: none; border: 0; }
+.land-star { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--c); color: #fff; font-size: 13px; line-height: 1; box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(0, 0, 0, 0.4); }
+
+.land-pipe { align-content: start; }
+.land-pipe-list, .land-site-page { display: grid; gap: 14px; align-content: start; }
+.land-site-page > .link-btn { justify-self: start; }
+.land-site-page > .btn.danger { justify-self: start; color: var(--danger); }
+.land-funnel { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.land-funnel-step { display: grid; gap: 1px; padding: 8px 10px; border: 0; border-top: 3px solid var(--c); border-radius: 8px; background: var(--surface-2); color: var(--text); text-align: left; cursor: pointer; }
+.land-funnel-step strong { font-size: 18px; }
+.land-funnel-step span { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.land-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.land-toolbar .input[type="search"] { flex: 1 1 200px; width: auto; }
+.land-filter-chip { padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer; }
+.land-filter-chip.on { background: var(--accent); border-color: transparent; color: #fff; }
+.land-due-card { border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+
+.land-site-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.land-site-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 4px 8px 4px 10px; border: 1px solid var(--border); border-radius: 10px; }
+.land-site-row:hover { background: var(--surface-2); }
+.land-site-main { flex: 1 1 220px; min-width: 0; display: grid; gap: 1px; padding: 6px 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
+.land-site-main > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.land-site-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.land-stage { width: auto; padding: 4px 6px; font-size: 12px; font-weight: 600; border-left: 4px solid var(--c); }
+.land-due { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.land-due.today { color: #d97706; font-weight: 600; }
+.land-due.late { color: var(--danger); font-weight: 600; }
+
+.land-site-head { display: flex; gap: 8px; align-items: center; }
+.land-title-input { flex: 1; font-size: 18px; font-weight: 700; }
+.land-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.land-form-field { display: grid; gap: 3px; align-content: start; }
+.land-form-field.wide { grid-column: 1 / -1; }
+.land-contacts { display: grid; gap: 8px; justify-items: start; }
+.land-contact { width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; }
+.land-contact-actions { display: flex; gap: 10px; align-items: center; }
+.danger-link { color: var(--danger); }
+.land-log { display: grid; grid-template-columns: auto 1fr auto; gap: 6px; }
+@container (max-width: 520px) { .land-log { grid-template-columns: 1fr; } .land-funnel { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.land-activity { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.land-activity li { display: grid; grid-template-columns: 90px 80px 1fr; gap: 8px; align-items: baseline; font-size: 13px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+@container (max-width: 520px) { .land-activity li { grid-template-columns: 1fr; gap: 0; } }

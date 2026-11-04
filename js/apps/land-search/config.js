@@ -49,6 +49,7 @@ export function parcelStatus(abbr, countyFips = '') {
 // The note shown on the Coverage tab: what Claude filled in, and what's left.
 export const COVERAGE = {
   updated: '4 Nov 2026',
+  saved: 'Saved sites and their pipeline (stages, contacts, activity, follow-ups) sync to your account through Supabase (table land_sites). Follow-ups that are due show on the dashboard’s to-do sticky note.',
   nationwide: [
     { name: 'State, county and city/town boundaries', source: 'US Census Bureau TIGERweb (live)', note: 'Drives the state → county → municipality filters. Northeast towns and townships come from county subdivisions.' },
     { name: 'Public land owned by local governments', source: 'USGS PAD-US, Protected Areas Database (live)', note: 'Parks, open space, preserves and other conservation land owned by cities, counties, towns and special districts (e.g. park districts). Includes acreage, owner name and public access.' },
@@ -62,6 +63,5 @@ export const COVERAGE = {
   ],
   parcels: 'In these states, when you zoom in to street level Land Search works out which county you’re in, searches ArcGIS Online for that county’s (or the state’s) free parcel service, and keeps the best one that has an owner-name field and covers the county. It then shows every parcel whose owner reads like a local government: cities, counties, towns, townships, boroughs, villages, school districts, housing authorities and special districts (state, federal and private owners are left out). Claude couldn’t test individual county services from its own environment, so each county’s source is found and checked in your browser the first time you look; if one is wrong you can switch it from the map, and tell Claude so it can be pinned.',
   pending: [
-    { name: 'Saved sites, outreach pipeline, follow-ups on the sticky note', where: '—', when: 'Stage 4' },
   ],
 };

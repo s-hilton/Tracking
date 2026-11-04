@@ -28,9 +28,12 @@ export function coverageView() {
       h('p', { class: 'land-note todo' }, h('strong', {}, 'Everywhere else: not connected — ask Claude to add it. '),
         'The map labels those areas too, and still shows local-government parks/open space and public buildings there.')),
     h('section', { class: 'land-card' },
+      h('h2', {}, 'Your saved sites'),
+      h('p', { class: 'muted' }, COVERAGE.saved)),
+    COVERAGE.pending.length ? h('section', { class: 'land-card' },
       h('h2', {}, 'Coming next'),
       h('ul', { class: 'land-sources' }, ...COVERAGE.pending.map((x) => h('li', {},
-        h('strong', {}, x.name), h('span', { class: 'land-tag planned' }, x.when), h('div', { class: 'small muted' }, x.where))))));
+        h('strong', {}, x.name), h('span', { class: 'land-tag planned' }, x.when), h('div', { class: 'small muted' }, x.where))))) : null);
 }
 
 // Parcel services found so far on this device, county by county.

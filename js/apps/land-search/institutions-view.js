@@ -7,6 +7,7 @@ import { INST_TYPES, colleges, museums, tribes } from './institutions.js';
 import { collegeContacts, itemContacts, searchUrl } from './contacts.js';
 import { boundsOf, pointInRings, formatAcres } from './geo.js';
 import { loadLeaflet, BASEMAPS } from './leaflet.js';
+import { sites, saveSite, savedFor, STAGES } from './data.js';
 
 const LOADERS = { college: colleges, tribe: tribes, museum: museums };
 
@@ -252,6 +253,7 @@ export function institutionsView(ctx) {
       h('button', { type: 'button', class: 'link-btn', onclick: () => { selected = null; draw(); } }, '← Back to list'),
       h('h3', {}, it.name),
       h('p', { class: 'muted small' }, `${it.kind} · from ${it.source}`),
+      saveButton(it, c),
       it.tags?.length ? h('div', { class: 'land-chips' }, ...it.tags.map((t) => h('span', { class: 'land-chip' }, t))) : null,
       h('dl', { class: 'land-dl' },
         row('Size', it.size || (it.acres ? formatAcres(it.acres) : null)),
@@ -280,7 +282,22 @@ export function institutionsView(ctx) {
       h('div', { class: 'land-links' },
         it.center ? link(`https://www.google.com/maps/@?api=1&map_action=map&center=${lat},${lng}&zoom=16&basemap=satellite`, 'Google Maps satellite') : null,
         it.osm ? link(it.osm, 'OpenStreetMap record') : null),
-      h('p', { class: 'muted small' }, '“Save to pipeline” arrives in stage 4.'));
+    );
+  }
+
+  function saveButton(it, c) {
+    const saved = savedFor(it.id);
+    if (saved) {
+      return h('button', { type: 'button', class: 'btn small land-saved', onclick: () => ctx.go('pipeline', { siteId: saved.id }) },
+        `★ Saved · ${STAGES[saved.stage]?.label ?? saved.stage} — open in Pipeline`);
+    }
+    return h('button', { type: 'button', class: 'btn primary small', onclick: () => {
+      const contacts = [
+        it.head ? { name: it.head.name, title: it.head.title, email: '', phone: '' } : null,
+        ...(c?.leaders ?? []).filter((l) => l.name !== it.head?.name).map((l) => ({ name: l.name, title: c.office ?? 'Leader', email: '', phone: '' })),
+      ].filter(Boolean);
+      saveSite({ ...it, category: it.type, owner: it.operator ?? '' }, { contacts, website: it.website || c?.website || '', phone: it.phone || c?.phone || '' });
+    } }, '☆ Save to pipeline');
   }
 
   // ---- Map --------------------------------------------------------------------------
@@ -299,11 +316,12 @@ export function institutionsView(ctx) {
     setArea(area.rings, area.label, true);
   }).catch(() => mapEl.replaceChildren(h('p', { class: 'land-offline' }, 'The map needs an internet connection.')));
   restore();
+  const offSites = sites.subscribe(() => draw());
 
   return {
     el,
     destroy() {
-      destroyed = true; cancelAnimationFrame(drawFrame);
+      destroyed = true; cancelAnimationFrame(drawFrame); offSites();
       [pickCtl, loadCtl, contactCtl].forEach((x) => x?.abort());
       resize?.disconnect(); map?.remove();
     },

@@ -7,6 +7,7 @@ import * as src from './sources.js';
 import { boundsOf, pointInRings, formatAcres, formatDistance } from './geo.js';
 import { parcelService, governmentParcels, chooseParcelService } from './parcels.js';
 import { countyContacts, municipalityContacts, searchUrl } from './contacts.js';
+import { sites, saveSite, savedFor, STAGES } from './data.js';
 
 // Each layer loads once you're zoomed in this far (keeps requests small).
 const MIN_ZOOM = { land: 9, buildings: 12, power: 11, parcels: 14 };
@@ -239,6 +240,15 @@ export function mapView(ctx) {
       layer.on('click', () => select(f));
       layer.addTo(groups.features);
     }
+    groups.saved.clearLayers();
+    for (const site of sites.all()) {
+      if (site.lat == null) continue;
+      L.marker([site.lat, site.lng], {
+        icon: L.divIcon({ className: 'land-star-wrap', html: `<span class="land-star" style="--c:${STAGES[site.stage]?.color ?? '#64748b'}">★</span>`, iconSize: [22, 22], iconAnchor: [11, 11] }),
+        title: `${site.name} (saved · ${STAGES[site.stage]?.label ?? site.stage})`,
+        zIndexOffset: 1000,
+      }).on('click', () => ctx.go('pipeline', { siteId: site.id })).addTo(groups.saved);
+    }
     groups.power.clearLayers();
     if (data.power && ui.layers.power && status.power !== 'zoom') {
       for (const line of data.power.lines) {
@@ -401,6 +411,25 @@ export function mapView(ctx) {
     }));
   }
 
+  // Save to the pipeline, with the local government's leaders as starting contacts.
+  function saveButton(f) {
+    const saved = savedFor(f.id);
+    if (saved) {
+      return h('button', { type: 'button', class: 'btn small land-saved', onclick: () => ctx.go('pipeline', { siteId: saved.id }) },
+        `★ Saved · ${STAGES[saved.stage]?.label ?? saved.stage} — open in Pipeline`);
+    }
+    return h('button', { type: 'button', class: 'btn primary small', onclick: () => {
+      const govs = Array.isArray(selectedGov) ? selectedGov : [];
+      const infos = govs.map((g) => ({ g, i: g.info && g.info !== 'loading' && !g.info.error ? g.info : null }));
+      const contacts = infos.flatMap(({ g, i }) => (i?.leaders ?? []).map((l) => ({ name: l.name, title: `${i.office ?? 'Head of government'} (${g.label})`, email: '', phone: '' })));
+      saveSite(f, {
+        contacts,
+        website: f.website || infos.find(({ i }) => i?.website)?.i.website || '',
+        phone: f.phone || infos.find(({ i }) => i?.phone)?.i.phone || '',
+      });
+    } }, '☆ Save as site');
+  }
+
   function closeDetail() { selected = null; powerCtl?.abort(); govCtl?.abort(); draw(); }
 
   function detail(f) {
@@ -425,6 +454,7 @@ export function mapView(ctx) {
       h('button', { type: 'button', class: 'link-btn', onclick: closeDetail }, '← Back to results'),
       h('h3', {}, f.name),
       h('p', { class: 'muted small' }, `${f.kind} · from ${f.source}`),
+      saveButton(f),
       h('dl', { class: 'land-dl' },
         row('Owner', owner || 'Not recorded in this source'),
         row('Owner type', f.ownerType),
@@ -478,7 +508,7 @@ export function mapView(ctx) {
     const v = ui.view ?? { lat: 39.5, lng: -98.5, zoom: 4 };
     map = L.map(mapEl, { zoomControl: true }).setView([v.lat, v.lng], v.zoom);
     setBasemap();
-    groups = { area: L.layerGroup().addTo(map), features: L.featureGroup().addTo(map), power: L.layerGroup().addTo(map) };
+    groups = { area: L.layerGroup().addTo(map), features: L.featureGroup().addTo(map), power: L.layerGroup().addTo(map), saved: L.layerGroup().addTo(map) };
     resize = new ResizeObserver(() => map.invalidateSize());
     resize.observe(mapEl);
     map.on('moveend', () => {
@@ -493,11 +523,12 @@ export function mapView(ctx) {
     mapEl.replaceChildren(h('p', { class: 'land-offline' }, 'The map needs an internet connection.'));
   });
   restore();
+  const offSites = sites.subscribe(() => draw());
 
   return {
     el,
     destroy() {
-      destroyed = true; clearTimeout(reloadTimer);
+      destroyed = true; clearTimeout(reloadTimer); offSites();
       [loadCtl, pickCtl, powerCtl, govCtl].forEach((c) => c?.abort());
       resize?.disconnect(); map?.remove();
     },
