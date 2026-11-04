@@ -1,8 +1,8 @@
 // Stage 3 data: institutions that may host a ground station. All live and free:
 //   colleges  US Dept. of Education IPEDS directory, via the Urban Institute's
 //             Education Data API (falls back to OpenStreetMap if it's unreachable)
-//   tribes    reservations and trust lands from Census TIGERweb (AIANNH)
-//   museums   museums and planetariums from OpenStreetMap
+//   tribes    reservations and trust lands from Census TIGERweb (AIANNH), for the Governments tab
+//   museums   museums and planetariums from OpenStreetMap + Wikidata, per county / town
 import { attr, getJson, queryLayer, envelope, overpass } from './sources.js';
 import { fromEsriRings, centerOf } from './geo.js';
 
@@ -12,8 +12,8 @@ const WIKIDATA = 'https://query.wikidata.org/sparql';
 
 export const INST_TYPES = {
   college: { label: 'Universities & colleges', one: 'College', color: '#2563eb' },
-  tribe: { label: 'Tribal nations', one: 'Tribal nation', color: '#b45309' },
   museum: { label: 'Museums', one: 'Museum', color: '#7c3aed' },
+  planetarium: { label: 'Planetariums', one: 'Planetarium', color: '#db2777' },
 };
 
 const CONTROL = { 1: 'Public', 2: 'Private nonprofit', 3: 'Private for-profit' };
@@ -87,8 +87,8 @@ function fromOsm(el, type) {
     id: `${type}:osm:${el.type}/${el.id}`,
     type,
     name: t.name || INST_TYPES[type].one,
-    kind: type === 'museum' ? (t.amenity === 'planetarium' ? 'Planetarium' : t.museum ? `${t.museum[0].toUpperCase()}${t.museum.slice(1).replace(/_/g, ' ')} museum` : 'Museum') : (t.amenity === 'college' ? 'College' : 'University'),
-    science: type === 'museum' && (t.amenity === 'planetarium' || /science|technology|space|aviation|aerospace|astronom|planetar|observatory/i.test(`${t.museum ?? ''} ${t.name ?? ''}`)),
+    kind: type === 'museum' || type === 'planetarium' ? (t.amenity === 'planetarium' ? 'Planetarium' : t.museum ? `${t.museum[0].toUpperCase()}${t.museum.slice(1).replace(/_/g, ' ')} museum` : 'Museum') : (t.amenity === 'college' ? 'College' : 'University'),
+    science: type === 'planetarium' || (type === 'museum' && t.amenity === 'planetarium' || /science|technology|space|aviation|aerospace|astronom|planetar|observatory/i.test(`${t.museum ?? ''} ${t.name ?? ''}`)),
     operator: t.operator ?? null,
     address: [street, t['addr:city'], t['addr:state'], t['addr:postcode']].filter(Boolean).join(', '),
     city: t['addr:city'] ?? null,
@@ -123,7 +123,7 @@ export function museums(st, box, signal) {
       wikidataMuseums(box),
     ]);
     if (osm.status === 'rejected' && wd.status === 'rejected') throw new Error(`${osm.reason.message}; Wikidata: ${wd.reason.message}`);
-    const items = osm.status === 'fulfilled' ? osm.value.map((el) => fromOsm(el, 'museum')).filter((m) => m.center && m.name !== 'Museum') : [];
+    const items = osm.status === 'fulfilled' ? osm.value.map((el) => fromOsm(el, el.tags?.amenity === 'planetarium' ? 'planetarium' : 'museum')).filter((m) => m.center && m.name !== 'Museum' && m.name !== 'Planetarium') : [];
     const seen = new Set(items.map((m) => m.wikidata).filter(Boolean));
     const names = new Set(items.map((m) => m.name.toLowerCase()));
     for (const m of wd.status === 'fulfilled' ? wd.value : []) {
@@ -159,7 +159,7 @@ async function wikidataMuseums(box) {
     const type = r.typeLabel?.value ?? 'museum';
     byId.set(qid, {
       id: `museum:wd:${qid}`,
-      type: 'museum',
+      type: /planetarium/i.test(type) ? 'planetarium' : 'museum',
       name: r.mLabel.value,
       kind: type[0].toUpperCase() + type.slice(1),
       science: /science|technology|planetarium|aviation|aerospace|space|observatory/i.test(`${type} ${r.mLabel.value}`),

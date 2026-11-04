@@ -1,6 +1,6 @@
 // "Check connections" on the Coverage tab: tries every live data source from
 // this browser, so a failure can be reported precisely.
-import { getJson, padusLayer, OVERPASS } from './sources.js';
+import { getJson, OVERPASS } from './sources.js';
 
 const timed = async (fn) => {
   const t = performance.now();
@@ -24,8 +24,7 @@ async function overpassPing(url, signal) {
 
 export const CHECKS = [
   { name: 'Census boundaries (TIGERweb)', run: (signal) => getJson('https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer', { f: 'json' }, signal).then((d) => `${d.layers?.length ?? 0} layers`) },
-  { name: 'ArcGIS Online search (finds parcel services)', run: (signal) => getJson('https://www.arcgis.com/sharing/rest/search', { f: 'json', q: 'parcels AND type:"Feature Service"', num: 1 }, signal).then((d) => `${(d.total ?? 0).toLocaleString()} parcel services listed`) },
-  { name: 'PAD-US public land', run: (signal) => padusLayer(signal).then((l) => l.title) },
+  { name: 'Census cities, towns & tribal lands', run: (signal) => getJson('https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer', { f: 'json' }, signal).then((d) => `${d.layers?.length ?? 0} layers`) },
   ...OVERPASS.map((url) => ({ name: `OpenStreetMap server ${new URL(url).host}`, run: (signal) => overpassPing(url, signal) })),
   { name: 'Wikidata', run: async (signal) => {
     const res = await fetch(`https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent('SELECT ?x WHERE { BIND(1 AS ?x) }')}`, { signal, headers: { Accept: 'application/sparql-results+json' } });

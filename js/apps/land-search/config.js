@@ -1,7 +1,5 @@
-// Land Search settings: the states list, which regions you asked to be wired up
-// first, and what is actually connected where. The Coverage tab and the map's
-// "not connected" labels both read from COVERAGE, so keep it up to date when
-// a new data source is plugged in.
+// Land Search settings: the states list and the Coverage tab's note of what's
+// connected. Keep COVERAGE up to date when a data source is added or changed.
 
 export const STATES = [
   ['01', 'AL', 'Alabama'], ['02', 'AK', 'Alaska'], ['04', 'AZ', 'Arizona'], ['05', 'AR', 'Arkansas'],
@@ -21,47 +19,16 @@ export const STATES = [
 
 export const stateByFips = (fips) => STATES.find((s) => s.fips === fips);
 
-// The regions you picked to be wired up first (4 Nov 2026).
-export const FOCUS_REGIONS = {
-  Southwest: ['AZ', 'NM', 'NV', 'UT', 'CO'],
-  Northeast: ['ME', 'NH', 'VT', 'MA', 'RI', 'CT', 'NY', 'NJ', 'PA'],
-};
-const FOCUS = new Set(Object.values(FOCUS_REGIONS).flat());
-export const regionOf = (abbr) => Object.keys(FOCUS_REGIONS).find((r) => FOCUS_REGIONS[r].includes(abbr)) ?? null;
-
-// County / statewide parcel services (every parcel with its owner). Free ones
-// are added one area at a time. Keyed by state abbreviation; a state entry can
-// cover the whole state or list the counties that are connected.
-//   AZ: { statewide: false, counties: { '013': { name: 'Maricopa', url: '…', ownerField: 'OWNER_NAME' } } }
-// Pinned services always win over automatic discovery (see parcels.js). Empty for
-// now: in focus states each county's service is found automatically in the browser;
-// once one is confirmed to work, pin it here.
-export const PARCEL_SERVICES = {};
-
-// What the map can tell you about a state's parcels.
-export function parcelStatus(abbr, countyFips = '') {
-  const svc = PARCEL_SERVICES[abbr];
-  if (svc?.statewide || (countyFips && svc?.counties?.[countyFips])) return 'connected';
-  if (FOCUS.has(abbr)) return 'auto';
-  return 'not-connected';
-}
-
-// The note shown on the Coverage tab: what Claude filled in, and what's left.
+// The note shown on the Coverage tab: what Claude connected, and how the app works.
 export const COVERAGE = {
-  updated: '4 Nov 2026',
-  saved: 'Saved sites and their pipeline (stages, contacts, activity, follow-ups) sync to your account through Supabase (table land_sites). Follow-ups that are due show on the dashboard’s to-do sticky note.',
+  updated: '5 Nov 2026',
+  how: 'You go through governments yourself: pick a state, county, city/town/township or tribal nation, add the link to their map / GIS data, their website and contacts, note parcels of interest, and mark whether they’re of interest. Anything marked Interested goes into the Pipeline, where follow-ups land on the dashboard’s to-do sticky note. Institutions work the same way from their map.',
   nationwide: [
-    { name: 'State, county and city/town boundaries', source: 'US Census Bureau TIGERweb (live)', note: 'Drives the state → county → municipality filters. Northeast towns and townships come from county subdivisions.' },
-    { name: 'Public land owned by local governments', source: 'USGS PAD-US, Protected Areas Database (live)', note: 'Parks, open space, preserves and other conservation land owned by cities, counties, towns and special districts (e.g. park districts). Includes acreage, owner name and public access.' },
-    { name: 'Libraries, town halls, community centres, fire stations', source: 'OpenStreetMap via Overpass (live)', note: 'Mapped by volunteers; ownership is not confirmed, so check county records before reaching out.' },
-    { name: 'Power lines and substations', source: 'OpenStreetMap via Overpass (live)', note: 'Shown on the map when zoomed in; the distance to the nearest line and substation is worked out when you open a site.' },
+    { name: 'States, counties, cities, towns, townships, boroughs & villages', source: 'US Census Bureau TIGERweb (live)', note: 'The Governments tab’s drop-downs. Only functioning governments are listed (census-only areas are left out).' },
+    { name: 'Tribal nations', source: 'US Census Bureau TIGERweb, American Indian areas (live)', note: 'Reservations, off-reservation trust lands and tribal statistical areas in each state. Leaders: BIA Tribal Leaders Directory link.' },
     { name: 'Universities & colleges', source: 'US Dept. of Education IPEDS directory, via the Urban Institute Education Data API (live; OpenStreetMap if unreachable)', note: 'Every degree-granting college: public/private, 2- or 4-year, size, website, phone, HBCU / tribal college / land-grant flags.' },
-    { name: 'Tribal nations', source: 'US Census Bureau TIGERweb, American Indian areas (live)', note: 'Reservations, off-reservation trust lands and tribal statistical areas, with land area. Leaders: BIA Tribal Leaders Directory link.' },
-    { name: 'Museums & planetariums', source: 'OpenStreetMap via Overpass (live)', note: 'Filter to science, space and planetariums.' },
-    { name: 'Government & institution contacts and leadership', source: 'Wikidata (live)', note: 'Official website, phone and current head (mayor, county executive, university president) where volunteers have recorded them: good for cities and universities, patchy for small towns and counties; search links fill the gaps.' },
-    { name: 'Broadband / fiber', source: 'FCC National Broadband Map (link)', note: 'The FCC has no free live feed for apps, so each site links to the FCC map at that spot.' },
+    { name: 'Museums & planetariums', source: 'OpenStreetMap (four servers, tried in turn) + Wikidata (live)', note: 'Loaded per county or city/town; a whole state is too much for the free servers.' },
+    { name: 'Websites, phones and current leadership', source: 'Wikidata (live)', note: 'Governors, mayors, county executives and university presidents where volunteers have recorded them; offered as suggestions you can accept.' },
   ],
-  parcels: 'In these states, when you zoom in to street level Land Search works out which county you’re in, searches ArcGIS Online for that county’s (or the state’s) free parcel service, and keeps the best one that has an owner-name field and covers the county. It then shows every parcel whose owner reads like a local government: cities, counties, towns, townships, boroughs, villages, school districts, housing authorities and special districts (state, federal and private owners are left out). Claude couldn’t test individual county services from its own environment, so each county’s source is found and checked in your browser the first time you look; if one is wrong you can switch it from the map, and tell Claude so it can be pinned.',
-  pending: [
-  ],
+  records: 'Everything you record (interest, pipeline stage, map-data links, websites, contacts, parcels of interest, notes, activity) syncs to your account through Supabase (table land_sites).',
 };
