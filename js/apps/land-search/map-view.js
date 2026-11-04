@@ -5,7 +5,7 @@ import { loadLeaflet, BASEMAPS } from './leaflet.js';
 import { STATES, stateByFips, parcelStatus, regionOf } from './config.js';
 import * as src from './sources.js';
 import { boundsOf, pointInRings, formatAcres, formatDistance } from './geo.js';
-import { parcelService, governmentParcels, chooseParcelService } from './parcels.js';
+import { parcelService, governmentParcels, chooseParcelService, parcelAt } from './parcels.js';
 import { countyContacts, municipalityContacts, searchUrl } from './contacts.js';
 import { sites, saveSite, savedFor, STAGES } from './data.js';
 
@@ -195,7 +195,7 @@ export function mapView(ctx) {
       parcelInfo = { county, status: 'searching' }; draw();
       const r = await parcelService(county, signal);
       parcelInfo = { county, ...r };
-      return r.service ? governmentParcels(r.service, box, { zoom: z }, signal) : null;
+      return r.service ? governmentParcels(r.service, box, { zoom: z, countyName: county.name }, signal) : null;
     }, (r) => { data.parcels = r?.features ?? []; data.parcelsMore = r?.more; });
     job('power', ui.layers.power, MIN_ZOOM.power,
       () => src.powerGrid(box, signal),
@@ -237,8 +237,12 @@ export function mapView(ctx) {
         ? L.polygon(f.rings, style)
         : L.circleMarker([f.center.lat, f.center.lng], { ...style, fillOpacity: 0.85 });
       layer.bindTooltip(`${f.name}${f.acres ? ` · ${formatAcres(f.acres)}` : ''}`, { sticky: true });
-      layer.on('click', () => select(f));
+      layer.on('click', (e) => { L.DomEvent.stopPropagation(e); select(f); });
       layer.addTo(groups.features);
+    }
+    groups.pick.clearLayers();
+    if (selected?.unmatched && selected.rings.length) {
+      L.polygon(selected.rings, { color: '#64748b', weight: 3, fillOpacity: 0.15, dashArray: '5 4' }).addTo(groups.pick);
     }
     groups.saved.clearLayers();
     for (const site of sites.all()) {
@@ -264,6 +268,7 @@ export function mapView(ctx) {
   }
 
   function showError(message) {
+    if (message && /no owner-name field|No layers/.test(message)) message += '. Pick the parcels layer itself (its link ends in a number).';
     status.error = message;
     renderSide();
   }
@@ -277,8 +282,8 @@ export function mapView(ctx) {
         'You’re seeing local-government parks/open space and public buildings only.');
     }
     if (st === 'none') {
-      return h('p', { class: 'land-note todo' }, h('strong', {}, `⚠ No free parcel service with owner names found for ${where} — ask Claude to add one. `),
-        'Some counties only sell parcel data or keep it on their own website.');
+      return h('div', { class: 'land-note todo' }, h('strong', {}, `⚠ No free parcel service with owner names found for ${where} — ask Claude to add one. `),
+        'Some counties only sell parcel data or keep it on their own website.', pasteLink(county));
     }
     const others = (candidates ?? []).filter((c) => c.url !== service.url);
     return h('div', { class: 'land-note ok' },
@@ -286,7 +291,16 @@ export function mapView(ctx) {
         service.pinned ? ' (connected by Claude)' : ' (found automatically)'),
       service.pinned ? null : h('details', { class: 'land-switch' }, h('summary', {}, 'Wrong source? Change it'),
         h('ul', {}, ...others.map((c) => h('li', {}, h('button', { type: 'button', class: 'link-btn', onclick: () => switchService(county, c.url) }, c.title))),
-          h('li', {}, h('button', { type: 'button', class: 'link-btn', onclick: () => switchService(county, null) }, 'Search again')))));
+          h('li', {}, h('button', { type: 'button', class: 'link-btn', onclick: () => switchService(county, null) }, 'Search again'))), pasteLink(county)),
+      h('div', { class: 'small muted' }, 'Tip: click any parcel on the map to see who owns it, even if it isn’t highlighted.'));
+  }
+
+  // Connect a county by hand: paste its ArcGIS parcel service or layer link.
+  function pasteLink(county) {
+    const input = h('input', { class: 'input', type: 'url', placeholder: 'https://…/arcgis/rest/services/…/MapServer/0' });
+    return h('details', { class: 'land-switch' }, h('summary', {}, 'Have the county’s parcel GIS link? Paste it'),
+      h('form', { class: 'land-paste', onsubmit: (e) => { e.preventDefault(); if (input.value.trim()) switchService(county, input.value.trim()); } },
+        input, h('button', { class: 'btn small', type: 'submit' }, 'Use it')));
   }
 
   async function switchService(county, url) {
@@ -466,7 +480,8 @@ export function mapView(ctx) {
         row('Address', f.address),
         row('Phone', f.phone),
         row('Location', f.center ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : null)),
-      f.category === 'parcel' ? h('p', { class: 'land-note small' }, 'Picked out because the owner’s name reads like a local government. Confirm with the county assessor before reaching out.') : null,
+      f.category === 'parcel' && f.unmatched ? h('p', { class: 'land-note small' }, 'This owner name doesn’t read like a local government, so it isn’t highlighted. If you know it’s publicly owned, save it anyway and tell Claude the owner name so it gets recognised.') : null,
+      f.category === 'parcel' && !f.unmatched ? h('p', { class: 'land-note small' }, 'Picked out because the owner’s name reads like a local government. Confirm with the county assessor before reaching out.') : null,
       f.source === 'OpenStreetMap' ? h('p', { class: 'land-note small' }, 'Ownership from OpenStreetMap isn’t confirmed. Check the county assessor’s records before reaching out.') : null,
       h('h4', {}, 'Power & fiber'),
       power,
@@ -508,9 +523,18 @@ export function mapView(ctx) {
     const v = ui.view ?? { lat: 39.5, lng: -98.5, zoom: 4 };
     map = L.map(mapEl, { zoomControl: true }).setView([v.lat, v.lng], v.zoom);
     setBasemap();
-    groups = { area: L.layerGroup().addTo(map), features: L.featureGroup().addTo(map), power: L.layerGroup().addTo(map), saved: L.layerGroup().addTo(map) };
+    groups = { area: L.layerGroup().addTo(map), features: L.featureGroup().addTo(map), power: L.layerGroup().addTo(map), saved: L.layerGroup().addTo(map), pick: L.layerGroup().addTo(map) };
     resize = new ResizeObserver(() => map.invalidateSize());
     resize.observe(mapEl);
+    // Click any parcel to see who owns it, government or not.
+    let inspectCtl = null;
+    map.on('click', (e) => {
+      if (!ui.layers.parcels || map.getZoom() < MIN_ZOOM.parcels || !parcelInfo?.service) return;
+      inspectCtl?.abort(); inspectCtl = new AbortController();
+      parcelAt(parcelInfo.service, { lat: e.latlng.lat, lng: e.latlng.lng }, { countyName: parcelInfo.county.name }, inspectCtl.signal)
+        .then((f) => { if (f) select(f); })
+        .catch((err) => { if (!inspectCtl.signal.aborted) showError(`Couldn’t look up that parcel: ${err.message}`); });
+    });
     map.on('moveend', () => {
       const c = map.getCenter();
       ui.view = { lat: +c.lat.toFixed(5), lng: +c.lng.toFixed(5), zoom: map.getZoom() };

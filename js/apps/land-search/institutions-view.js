@@ -25,7 +25,7 @@ export function institutionsView(ctx) {
   let stateRings = []; let area = { rings: [], label: '' };
   let countyList = []; let muniList = [];
   let items = { college: [], tribe: [], museum: [] };
-  let status = {}; let collegeSource = '';
+  let status = {}; let notes = {}; let collegeSource = '';
   let selected = null; let contacts = null;
   let pickCtl = null; let loadCtl = null; let contactCtl = null;
 
@@ -140,13 +140,14 @@ export function institutionsView(ctx) {
     const box = boundsOf(stateRings);
     for (const [type, load] of Object.entries(LOADERS)) {
       if (!ui.types[type]) { status[type] = ''; continue; }
-      if (type === 'tribe' && !box) continue;
+      if (type !== 'college' && !box) continue;
       status[type] = 'loading';
-      load(st, type === 'tribe' ? box : signal, signal)
+      (type === 'college' ? load(st, signal) : load(st, box, signal))
         .then((r) => {
           if (signal.aborted || ui.stateFips !== st.fips) return;
           items[type] = r.items; status[type] = '';
           if (type === 'college') collegeSource = r.source;
+          notes[type] = r.partial ?? null;
           draw();
         })
         .catch((err) => { if (!signal.aborted) { status[type] = `error:${err.message}`; draw(); } });
@@ -198,7 +199,8 @@ export function institutionsView(ctx) {
     const s = status[type];
     if (!s) return null;
     if (s === 'loading') return h('li', { class: 'muted' }, `Loading ${INST_TYPES[type].label.toLowerCase()}…`);
-    return h('li', { class: 'land-err' }, `Couldn’t load ${INST_TYPES[type].label.toLowerCase()}: ${s.slice(6)}`);
+    return h('li', { class: 'land-err' }, `Couldn’t load ${INST_TYPES[type].label.toLowerCase()}: ${s.slice(6)} `,
+      h('button', { type: 'button', class: 'link-btn', onclick: () => loadAll() }, 'Try again'));
   }
 
   function renderSide(list) {
@@ -206,6 +208,7 @@ export function institutionsView(ctx) {
     if (!ui.stateFips) { results.replaceChildren(h('p', { class: 'muted small' }, 'Pick a state to list its universities and colleges, tribal nations and museums.')); return; }
     const counts = Object.fromEntries(Object.keys(INST_TYPES).map((t) => [t, list.filter((x) => x.type === t).length]));
     const lines = [...Object.keys(INST_TYPES).map(statusLine), status.error ? h('li', { class: 'land-err' }, status.error) : null,
+      ...Object.entries(notes).filter(([t, n]) => n && ui.types[t]).map(([, n]) => h('li', { class: 'muted' }, n)),
       collegeSource === 'osm' && ui.types.college ? h('li', { class: 'muted' }, 'The college directory was unreachable, so colleges come from OpenStreetMap (less detail).') : null].filter(Boolean);
     const shown = list.slice(0, 300);
     results.replaceChildren(...[

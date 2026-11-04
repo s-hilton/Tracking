@@ -8,7 +8,14 @@ import { load, save } from '../../storage.js';
 import { fromEsriRings, centerOf, ringAcres, boundsOf, pointInRings, distanceToLine } from './geo.js';
 
 const TIGER = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb';
-const OVERPASS = 'https://overpass-api.de/api/interpreter';
+// OpenStreetMap's query servers. The main one is often busy, so each request
+// falls through to the next mirror on a timeout, rate limit or server error.
+const OVERPASS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+];
 const ARCGIS_SEARCH = 'https://www.arcgis.com/sharing/rest/search';
 
 export async function getJson(url, params = {}, signal) {
@@ -247,11 +254,22 @@ export async function publicLand(box, { minAcres = 0, maxAcres = 0, zoom = 10 } 
 
 // ---- OpenStreetMap (Overpass) ----------------------------------------------
 
-async function overpass(query, signal) {
-  const res = await fetch(OVERPASS, { method: 'POST', body: new URLSearchParams({ data: query }), signal });
-  if (res.status === 429 || res.status === 504) throw new Error('OpenStreetMap is busy; try again in a moment');
-  if (!res.ok) throw new Error(`OpenStreetMap answered ${res.status}`);
-  return (await res.json()).elements ?? [];
+export async function overpass(query, signal) {
+  let last = null;
+  for (const url of OVERPASS) {
+    try {
+      const res = await fetch(url, { method: 'POST', body: new URLSearchParams({ data: query }), signal });
+      if (!res.ok) throw new Error(res.status === 429 ? 'too many requests' : res.status === 504 ? 'timed out' : `answered ${res.status}`);
+      const data = await res.json();
+      // A query that runs out of time still answers 200, with a "remark" and no results.
+      if (/runtime error|timed out|out of memory/i.test(data.remark ?? '')) throw new Error(data.remark.replace(/^runtime error:\s*/i, ''));
+      return data.elements ?? [];
+    } catch (err) {
+      if (signal?.aborted) throw err;
+      last = err;
+    }
+  }
+  throw new Error(`OpenStreetMap servers are busy (${last?.message ?? 'no answer'}); try again in a minute`);
 }
 
 const bboxStr = ({ s, w, n, e }) => `${s.toFixed(5)},${w.toFixed(5)},${n.toFixed(5)},${e.toFixed(5)}`;

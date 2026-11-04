@@ -3,12 +3,12 @@
 //             Education Data API (falls back to OpenStreetMap if it's unreachable)
 //   tribes    reservations and trust lands from Census TIGERweb (AIANNH)
 //   museums   museums and planetariums from OpenStreetMap
-import { attr, getJson, queryLayer, envelope } from './sources.js';
+import { attr, getJson, queryLayer, envelope, overpass } from './sources.js';
 import { fromEsriRings, centerOf } from './geo.js';
 
 const URBAN = 'https://educationdata.urban.org/api/v1/college-university/ipeds/directory';
 const TIGER_AIANNH = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/AIANNHA/MapServer';
-const OVERPASS = 'https://overpass-api.de/api/interpreter';
+const WIKIDATA = 'https://query.wikidata.org/sparql';
 
 export const INST_TYPES = {
   college: { label: 'Universities & colleges', one: 'College', color: '#2563eb' },
@@ -22,10 +22,14 @@ const SIZE = { 1: 'Under 1,000 students', 2: '1,000–4,999 students', 3: '5,000
 const yes = (v) => v === 1 || v === '1' || v === true;
 const known = (v) => v != null && v !== '' && !(typeof v === 'number' && v < 0);
 
+// State-wide lists are fetched once per session. The fetch isn't tied to the
+// view that asked for it, so switching filters or tabs mid-load can't leave a
+// cancelled request in the cache; failures are dropped so "Try again" refetches.
 const cache = new Map();
-const cached = (key, fn) => {
+const cached = (key, fn, signal) => {
   if (!cache.has(key)) cache.set(key, fn().catch((err) => { cache.delete(key); throw err; }));
-  return cache.get(key);
+  const p = cache.get(key);
+  return signal ? Promise.race([p, new Promise((_, reject) => signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true }))]) : p;
 };
 
 // ---- Colleges ---------------------------------------------------------------
@@ -74,12 +78,6 @@ function fromUrban(r, year) {
   };
 }
 
-async function overpass(query, signal) {
-  const res = await fetch(OVERPASS, { method: 'POST', body: new URLSearchParams({ data: query }), signal });
-  if (res.status === 429 || res.status === 504) throw new Error('OpenStreetMap is busy; try again in a moment');
-  if (!res.ok) throw new Error(`OpenStreetMap answered ${res.status}`);
-  return (await res.json()).elements ?? [];
-}
 
 function fromOsm(el, type) {
   const t = el.tags ?? {};
@@ -106,32 +104,81 @@ function fromOsm(el, type) {
 export function colleges(st, signal) {
   return cached(`college:${st.fips}`, async () => {
     try {
-      const { year, rows } = await urbanColleges(st.fips, signal);
+      const { year, rows } = await urbanColleges(st.fips);
       if (rows.length) return { items: rows.map((r) => fromUrban(r, year)).filter((c) => c.center), source: 'ipeds' };
-    } catch (err) {
-      if (signal?.aborted) throw err;
-    }
-    const els = await overpass(`[out:json][timeout:60];area["ISO3166-2"="US-${st.abbr}"]->.a;(nwr["amenity"~"^(university|college)$"](area.a););out center tags;`, signal);
+    } catch { /* fall back to OpenStreetMap */ }
+    const els = await overpass(`[out:json][timeout:90];area["ISO3166-2"="US-${st.abbr}"]->.a;(nwr["amenity"~"^(university|college)$"](area.a););out center tags;`);
     return { items: els.map((el) => fromOsm(el, 'college')).filter((c) => c.center && c.name !== 'College'), source: 'osm' };
-  });
+  }, signal);
 }
 
-export function museums(st, signal) {
+// Museums: OpenStreetMap first (most complete); Wikidata if every OpenStreetMap
+// server is busy. Both are merged when both answer, so nothing is missed.
+export function museums(st, stateBox, signal) {
   return cached(`museum:${st.fips}`, async () => {
-    const els = await overpass(`[out:json][timeout:60];area["ISO3166-2"="US-${st.abbr}"]->.a;(nwr["tourism"="museum"](area.a);nwr["amenity"="planetarium"](area.a););out center tags;`, signal);
-    return { items: els.map((el) => fromOsm(el, 'museum')).filter((m) => m.center && m.name !== 'Museum') };
-  });
+    const [osm, wd] = await Promise.allSettled([
+      overpass(`[out:json][timeout:90];area["ISO3166-2"="US-${st.abbr}"]["admin_level"="4"]->.a;(nwr["tourism"="museum"](area.a);nwr["amenity"="planetarium"](area.a););out center tags;`),
+      wikidataMuseums(stateBox),
+    ]);
+    if (osm.status === 'rejected' && wd.status === 'rejected') throw osm.reason;
+    const items = osm.status === 'fulfilled' ? osm.value.map((el) => fromOsm(el, 'museum')).filter((m) => m.center && m.name !== 'Museum') : [];
+    const seen = new Set(items.map((m) => m.wikidata).filter(Boolean));
+    const names = new Set(items.map((m) => m.name.toLowerCase()));
+    for (const m of wd.status === 'fulfilled' ? wd.value : []) {
+      if (!seen.has(m.wikidata) && !names.has(m.name.toLowerCase())) items.push(m);
+    }
+    return { items, partial: osm.status === 'rejected' ? 'OpenStreetMap was busy, so museums come from Wikidata only (fewer small museums).' : null };
+  }, signal);
+}
+
+// Anything Wikidata counts as a museum (or planetarium) inside the state's
+// bounding box; the view then keeps only those inside the state itself.
+async function wikidataMuseums(box) {
+  if (!box) throw new Error('No state outline');
+  const query = `SELECT ?m ?mLabel ?coord ?website ?typeLabel WHERE {
+    SERVICE wikibase:box {
+      ?m wdt:P625 ?coord .
+      bd:serviceParam wikibase:cornerSouthWest "Point(${box.w} ${box.s})"^^geo:wktLiteral .
+      bd:serviceParam wikibase:cornerNorthEast "Point(${box.e} ${box.n})"^^geo:wktLiteral .
+    }
+    ?m wdt:P31 ?type .
+    { ?type wdt:P279* wd:Q33506 } UNION { VALUES ?type { wd:Q148319 } }
+    FILTER NOT EXISTS { ?m wdt:P576 ?closed }
+    OPTIONAL { ?m wdt:P856 ?website }
+    SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+  } LIMIT 3000`;
+  const res = await fetch(`${WIKIDATA}?format=json&query=${encodeURIComponent(query)}`, { headers: { Accept: 'application/sparql-results+json' } });
+  if (!res.ok) throw new Error(`Wikidata answered ${res.status}`);
+  const byId = new Map();
+  for (const r of (await res.json()).results?.bindings ?? []) {
+    const qid = r.m.value.split('/').pop();
+    const [, lng, lat] = /Point\(([-\d.]+) ([-\d.]+)\)/.exec(r.coord?.value ?? '') ?? [];
+    if (byId.has(qid) || !lat || /^Q\d+$/.test(r.mLabel?.value ?? 'Q1')) continue;
+    const type = r.typeLabel?.value ?? 'museum';
+    byId.set(qid, {
+      id: `museum:wd:${qid}`,
+      type: 'museum',
+      name: r.mLabel.value,
+      kind: type[0].toUpperCase() + type.slice(1),
+      science: /science|technology|planetarium|aviation|aerospace|space|observatory/i.test(`${type} ${r.mLabel.value}`),
+      website: r.website?.value ?? null,
+      wikidata: qid,
+      center: { lat: Number(lat), lng: Number(lng) },
+      source: 'Wikidata',
+    });
+  }
+  return [...byId.values()];
 }
 
 // ---- Tribal nations -------------------------------------------------------------
 
 export function tribes(st, stateBox, signal) {
   return cached(`tribe:${st.fips}`, async () => {
-    const svc = await getJson(TIGER_AIANNH, { f: 'json' }, signal);
+    const svc = await getJson(TIGER_AIANNH, { f: 'json' });
     const layers = (svc.layers ?? []).filter((l) => /reservation|trust land|tribal statistical|tribal designated|alaska native village/i.test(l.name) && !/label/i.test(l.name));
     const items = new Map();
     for (const l of layers) {
-      const d = await queryLayer(`${TIGER_AIANNH}/${l.id}`, { where: '1=1', outFields: '*', returnGeometry: true, maxAllowableOffset: 0.005, ...envelope(stateBox) }, signal);
+      const d = await queryLayer(`${TIGER_AIANNH}/${l.id}`, { where: '1=1', outFields: '*', returnGeometry: true, maxAllowableOffset: 0.005, ...envelope(stateBox) });
       for (const { attributes: a, geometry } of d.features ?? []) {
         const geoid = String(attr(a, 'GEOID'));
         const rings = fromEsriRings(geometry?.rings);
@@ -152,7 +199,7 @@ export function tribes(st, stateBox, signal) {
       }
     }
     return { items: [...items.values()] };
-  });
+  }, signal);
 }
 
 export const formatInstSource = (it) => it.source;
