@@ -137,3 +137,4 @@
 .land-activity { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .land-activity li { display: grid; grid-template-columns: 90px 80px 1fr; gap: 8px; align-items: baseline; font-size: 13px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
 @container (max-width: 520px) { .land-activity li { grid-template-columns: 1fr; gap: 0; } }
+.land-paste { display: grid; grid-template-columns: 1fr auto; gap: 6px; margin-top: 4px; }

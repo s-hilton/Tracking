@@ -40,16 +40,18 @@ function findFields(fields) {
 // ---- Who counts as a local government ---------------------------------------
 
 // Broad patterns sent to the server; the stricter check below weeds out the rest.
-const SERVER_PATTERNS = ['CITY OF', ' CITY', 'COUNTY', 'TOWN OF', ' TOWN', 'TOWNSHIP', ' TWP', 'VILLAGE OF', 'BOROUGH', 'BORO OF',
-  'MUNICIPAL', 'SCHOOL DIST', 'BOARD OF ED', 'PUBLIC SCHOOL', 'HOUSING AUTH', 'PARK DIST', 'PARKS', 'LIBRARY', 'FIRE DIST',
-  'WATER DIST', 'SANITATION', 'REDEVELOPMENT', 'COMMISSIONERS', 'SELECTMEN', 'INHABITANTS', 'CONSERVATION COMM', 'AUTHORITY'];
-const PRIVATE = /\b(L\.?L\.?C|INC|CORP|CORPORATION|CO|COMPANY|LP|LLP|LTD|TRUST|TRUSTEES?|TR|CHURCH|BANK|HOMEOWNERS|HOA|ASSOC(IATION)?|PARTNERS(HIP)?|CONDO(MINIUM)?|ESTATE|FAMILY|PROPERTIES|HOLDINGS|INVESTMENTS?|VENTURES?|MINISTR(Y|IES))\b/;
+// Assessors abbreviate a lot (WEST CHESTER BORO, CHESTER CO COMMISSIONERS,
+// PARKING AUTH, CHERRY HILL TWP, X SCH DIST), so the patterns are short.
+const SERVER_PATTERNS = ['CITY', 'COUNTY', 'CNTY', ' CO ', 'TOWN', 'TWP', 'VILLAGE', 'VLG', 'BORO', 'MUNIC', 'SCH', 'BOARD OF ED', 'BD OF ED',
+  'AUTH', 'DIST', 'PARKS', 'LIBRARY', 'SANITA', 'REDEV', 'COMM', 'SELECTMEN', 'INHABITANTS'];
+const PRIVATE = /\b(L\.?L\.?C|INC|CORP|CORPORATION|COMPANY|LP|LLP|LTD|TRUST|TRUSTEES?|TR|CHURCH|BANK|HOMEOWNERS|HOA|ASSOC(IATION)?|PARTNERS(HIP)?|CONDO(MINIUM)?|ESTATE|FAMILY|PROPERTIES|HOLDINGS|INVESTMENTS?|VENTURES?|MINISTR(Y|IES))\b/;
 const KINDS = [
-  [/\bSCHOOL|BOARD OF ED|\bUSD\b|\bISD\b/, 'School district'],
+  [/\bSCHOOL|\bSCH\b|BOARD OF ED|\bBD OF ED|\bUSD\b|\bISD\b|\bSCH DIST|\bS ?D\b/, 'School district'],
   [/HOUSING AUTH/, 'Housing authority'],
+  [/PARKING AUTH/, 'Parking authority'],
   [/PARK DIST|RECREATION DIST|PARKS? (AND|&) REC/, 'Park district'],
-  [/FIRE DIST|WATER DIST|SANITA|IRRIGATION|DRAINAGE|FLOOD CONTROL|UTILITY DIST|SEWER|AUTHORITY|DISTRICT/, 'Special district'],
-  [/COUNTY/, 'County'],
+  [/FIRE DIST|WATER DIST|SANITA|IRRIGATION|DRAINAGE|FLOOD CONTROL|UTILITY DIST|SEWER|\bAUTH(ORITY)?\b|DISTRICT|\bDIST\b|REDEV/, 'Special district'],
+  [/COUNTY|\bCNTY\b|\bCO (COMM|COMMRS|COMMISSIONERS|BOARD|BD|OF)\b|\bCO$/, 'County'],
   [/TOWNSHIP|\bTWP\b/, 'Township'],
   [/BOROUGH|\bBORO\b/, 'Borough'],
   [/VILLAGE/, 'Village'],
@@ -58,13 +60,18 @@ const KINDS = [
 ];
 const STATE_OR_FED = /\b(STATE OF|UNITED STATES|USA\b|U S A|BUREAU OF|DEPT OF THE INTERIOR|COMMONWEALTH OF|STATE LAND|STATE HIGHWAY|DEPT OF TRANSPORTATION)\b/;
 
-export function localGovernmentKind(owner) {
+export function localGovernmentKind(owner, countyName = '') {
   const o = String(owner ?? '').toUpperCase().replace(/[.,]/g, ' ').replace(/\s+/g, ' ').trim();
   if (!o || PRIVATE.test(o) || STATE_OR_FED.test(o)) return null;
   const hit = KINDS.find(([re]) => re.test(o));
   if (!hit) return null;
   // "COUNTY" alone also matches things like "COUNTY ROAD FARMS"; require it to read as an owner.
-  if (hit[1] === 'County' && !/(COUNTY OF|\bCOUNTY$|\bCOUNTY (BOARD|COMM|PARKS?|GOVT|GOVERNMENT|SUPERVISORS)|\w+ COUNTY\b)/.test(o)) return null;
+  if (hit[1] === 'County' && !/(COUNTY OF|\bCOUNTY$|\bCOUNTY (BOARD|COMM|PARKS?|GOVT|GOVERNMENT|SUPERVISORS)|\w+ COUNTY\b|\bCNTY\b|\bCO (COMM|COMMRS|COMMISSIONERS|BOARD|BD|OF)\b|^\w+( \w+)? CO$)/.test(o)) return null;
+  // "<NAME> CO" alone is only the county when NAME is this county (else it's a company).
+  if (hit[1] === 'County' && /^\w+( \w+)? CO$/.test(o)) {
+    const base = String(countyName).toUpperCase().replace(/ (COUNTY|PARISH).*$/, '').trim();
+    if (!base || o !== `${base} CO`) return null;
+  }
   return hit[1];
 }
 
@@ -110,12 +117,20 @@ async function inspectService(item, county, signal) {
     if (!fields.owner) continue;
     const ext = extentToLatLng(info.extent);
     if (ext && !overlaps(ext, county.box)) continue;
+    // Ask the server whether it has parcels in this county at all; this works
+    // whatever projection the layer is in (e.g. a same-named county elsewhere).
+    if (!ext) {
+      try {
+        const n = await queryLayer(url, { where: '1=1', returnCountOnly: true, ...envelope(county.box) }, signal);
+        if (!(n.count > 0)) continue;
+      } catch { continue; }
+    }
     const text = `${item.title} ${l.name}`;
     const score = 3
       + (new RegExp(`\\b${county.name}\\b`, 'i').test(text) ? 3 : 0)
       + (new RegExp(`\\b${county.stateName}\\b|\\bstatewide\\b`, 'i').test(text) ? 1 : 0)
       + (/parcel/i.test(text) ? 2 : 0)
-      + (ext ? 2 : 0)
+      + 2
       + (fields.acres ? 1 : 0) + (fields.address ? 1 : 0) + (fields.id ? 1 : 0)
       - (/sold|sales|historic|20[01]\d|zoning|easement|subdivision|plat/i.test(text) ? 4 : 0);
     out.push({
@@ -141,17 +156,19 @@ export function parcelService(county, signal) {
   if (!searching.has(key)) {
     searching.set(key, (async () => {
       const name = county.name.replace(/ (County|Parish|Borough|Census Area|Municipality)$/i, '');
+      const types = '(type:"Feature Service" OR type:"Map Service")';
       const queries = [
-        `(parcel OR parcels OR "tax parcels") AND "${name}" AND (type:"Feature Service" OR type:"Map Service")`,
-        `(parcel OR parcels OR "tax parcels") AND "${county.stateName}" AND (type:"Feature Service" OR type:"Map Service")`,
+        `(parcel OR parcels OR "tax parcels" OR assessment) AND "${name} County" AND ${types}`,
+        `(parcel OR parcels OR "tax parcels") AND "${name}" AND ("${county.stateName}" OR ${county.abbr}) AND ${types}`,
+        `(parcel OR parcels OR "tax parcels") AND "${county.stateName}" AND ${types}`,
       ];
       const items = new Map();
       for (const q of queries) {
-        const r = await getJson(ARCGIS_SEARCH, { f: 'json', q, num: 15, sortField: 'numviews', sortOrder: 'desc' }, signal);
+        const r = await getJson(ARCGIS_SEARCH, { f: 'json', q, num: 20, sortField: 'numviews', sortOrder: 'desc' }, signal);
         for (const it of r.results ?? []) if (it.url && !items.has(it.url)) items.set(it.url, it);
       }
       const candidates = [];
-      for (const item of [...items.values()].slice(0, 14)) {
+      for (const item of [...items.values()].slice(0, 24)) {
         try { candidates.push(...await inspectService(item, { ...county, name }, signal)); } catch { /* unreachable service: skip */ }
         if (candidates.some((c) => c.score >= 12)) break;
       }
@@ -175,16 +192,60 @@ export async function chooseParcelService(county, url, signal) {
   const all = foundAll();
   const prev = all[key];
   if (!url) { delete all[key]; save(FOUND_KEY, all); return; }
-  const info = await getJson(url, { f: 'json' }, signal);
+  url = url.trim().replace(/\/query.*$/i, '').replace(/[?#].*$/, '').replace(/\/$/, '');
+  let info = await getJson(url, { f: 'json' }, signal);
+  if (!info.fields && info.layers) {
+    // A whole service: use its parcel layer.
+    const layer = info.layers.find((l) => /parcel/i.test(l.name)) ?? info.layers[0];
+    if (!layer) throw new Error('No layers at that link');
+    url = `${url}/${layer.id}`;
+    info = await getJson(url, { f: 'json' }, signal);
+  }
   const fields = findFields(info.fields ?? []);
   if (!fields.owner) throw new Error('That layer has no owner-name field');
-  all[key] = { ...prev, url, title: prev?.candidates?.find((c) => c.url === url)?.title ?? info.name, fields, max: info.maxRecordCount ?? 1000, paging: Boolean(info.advancedQueryCapabilities?.supportsPagination), at: Date.now(), chosen: true };
+  all[key] = { ...prev, url, title: prev?.candidates?.find((c) => c.url === url)?.title ?? info.name ?? 'Pasted parcel service', county: prev?.county ?? `${county.name}, ${county.abbr}`, candidates: prev?.candidates ?? [], fields, max: info.maxRecordCount ?? 1000, paging: Boolean(info.advancedQueryCapabilities?.supportsPagination), at: Date.now(), chosen: true };
   save(FOUND_KEY, all);
 }
 
 // ---- Loading parcels in view ---------------------------------------------------
 
-export async function governmentParcels(service, box, { zoom = 15 } = {}, signal) {
+function toFeature(service, { attributes: a, geometry }, countyName) {
+  const f = service.fields;
+  const owner = a[f.owner];
+  const kind = localGovernmentKind(owner, countyName);
+  const rings = fromEsriRings(geometry?.rings);
+  if (!rings.length) return null;
+  const acres = Number(f.acres && a[f.acres]) || rings.reduce((sum, r) => sum + ringAcres(r), 0);
+  const id = f.id ? a[f.id] : null;
+  return {
+    id: `parcel:${service.url}:${id ?? attr(a, 'OBJECTID', 'FID') ?? JSON.stringify(centerOf(rings))}`,
+    source: service.title,
+    sourceUrl: service.url,
+    category: 'parcel',
+    kind: `Parcel${f.use && a[f.use] ? ` · ${a[f.use]}` : ''}`,
+    name: (f.address && a[f.address]) || (id ? `Parcel ${id}` : 'Parcel'),
+    owner: owner == null ? '' : String(owner).trim(),
+    ownerType: kind ?? 'Not recognised as a local government',
+    unmatched: !kind,
+    parcelId: id,
+    address: f.address ? a[f.address] : null,
+    landUse: f.use ? a[f.use] : null,
+    acres,
+    rings,
+    center: centerOf(rings),
+  };
+}
+
+// Whatever parcel is at a point, government-owned or not (click-to-inspect).
+export async function parcelAt(service, { lat, lng }, { countyName = '' } = {}, signal) {
+  const d = await queryLayer(service.url, {
+    where: '1=1', outFields: '*', returnGeometry: true,
+    geometry: `${lng},${lat}`, geometryType: 'esriGeometryPoint', inSR: 4326, spatialRel: 'esriSpatialRelIntersects',
+  }, signal);
+  return d.features?.[0] ? toFeature(service, d.features[0], countyName) : null;
+}
+
+export async function governmentParcels(service, box, { zoom = 15, countyName = '' } = {}, signal) {
   const f = service.fields;
   const like = (upper) => SERVER_PATTERNS.map((p) => `${upper ? `UPPER(${f.owner})` : f.owner} LIKE '%${p.replace(/'/g, "''")}%'`).join(' OR ');
   const params = {
@@ -196,32 +257,7 @@ export async function governmentParcels(service, box, { zoom = 15 } = {}, signal
     if (signal?.aborted) throw err;
     d = await queryLayer(service.url, { ...params, where: like(false) }, signal); // servers without UPPER()
   }
-  const features = [];
-  for (const { attributes: a, geometry } of d.features ?? []) {
-    const owner = a[f.owner];
-    const kind = localGovernmentKind(owner);
-    if (!kind) continue;
-    const rings = fromEsriRings(geometry?.rings);
-    if (!rings.length) continue;
-    const acres = Number(f.acres && a[f.acres]) || rings.reduce((s, r) => s + ringAcres(r), 0);
-    const id = f.id ? a[f.id] : null;
-    features.push({
-      id: `parcel:${service.url}:${id ?? attr(a, 'OBJECTID', 'FID') ?? JSON.stringify(centerOf(rings))}`,
-      source: service.title,
-      sourceUrl: service.url,
-      category: 'parcel',
-      kind: `Parcel${f.use && a[f.use] ? ` · ${a[f.use]}` : ''}`,
-      name: (f.address && a[f.address]) || (id ? `Parcel ${id}` : 'Parcel'),
-      owner: String(owner).trim(),
-      ownerType: kind,
-      parcelId: id,
-      address: f.address ? a[f.address] : null,
-      landUse: f.use ? a[f.use] : null,
-      acres,
-      rings,
-      center: centerOf(rings),
-    });
-  }
+  const features = (d.features ?? []).map((x) => toFeature(service, x, countyName)).filter((x) => x && x.ownerType && !x.unmatched);
   return { features, more: Boolean(d.exceededTransferLimit) };
 }
 
