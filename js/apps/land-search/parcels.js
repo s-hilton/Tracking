@@ -14,8 +14,10 @@ import { fromEsriRings, centerOf, ringAcres } from './geo.js';
 import { PARCEL_SERVICES, FOCUS_REGIONS } from './config.js';
 
 const ARCGIS_SEARCH = 'https://www.arcgis.com/sharing/rest/search';
-const FOUND_KEY = 'land:parcel-services'; // { 'AZ-005': { url, title, fields, … } | { none: true, at } }
-const RETRY_NONE_AFTER = 7 * 864e5;
+// v2: results saved by the first version (which missed abbreviations and gave up
+// easily) are ignored so every county gets searched again.
+const FOUND_KEY = 'land:parcel-services:v2'; // { 'AZ-005': { url, title, fields, … } | { none: true, at, tried } }
+const RETRY_NONE_AFTER = 864e5; // a county with nothing found is searched again the next day
 
 const FIELD_NAMES = {
   owner: ['OWNER', 'OWNER_NAME', 'OWNERNAME', 'OWNER1', 'OWNER_1', 'OWNER_NAME1', 'OWN1', 'OWNERNME1', 'OWN_NAME', 'OWNNAME', 'OWNER1_NAME', 'PRIMARY_OWNER', 'OWNERS', 'OWNER_FULL', 'OWNER_NAM', 'DEEDHOLDER', 'TAXPAYER', 'OWN_NAME1', 'OWNER_NME', 'OWNERNM', 'NAME_OWNER', 'OWNER_NAME_1', 'OWNERNAME1'],
@@ -103,27 +105,31 @@ function extentToLatLng(ext) {
 }
 const overlaps = (a, b) => a && b && a.s < b.n && a.n > b.s && a.w < b.e && a.e > b.w;
 
-async function inspectService(item, county, signal) {
+async function inspectService(item, county, signal, tried) {
+  const note = (title, reason) => tried.push({ title, url: item.url, reason });
   const svc = await getJson(item.url, { f: 'json' }, signal);
   const layers = svc.layers ?? (svc.geometryType ? [{ id: null, name: svc.name ?? item.title }] : []);
   const ranked = layers.filter((l) => !/label|anno|line|point|lot line|dimension/i.test(l.name))
     .sort((a, b) => Number(/parcel/i.test(b.name)) - Number(/parcel/i.test(a.name))).slice(0, 3);
   const out = [];
+  if (!ranked.length) note(item.title, 'no map layers');
   for (const l of ranked) {
+    const title = `${item.title}${l.name && l.name !== item.title ? ` — ${l.name}` : ''}`;
     const url = l.id == null ? item.url : `${item.url}/${l.id}`;
     const info = await getJson(url, { f: 'json' }, signal);
-    if (info.geometryType !== 'esriGeometryPolygon' || !/query/i.test(info.capabilities ?? 'Query')) continue;
+    if (info.geometryType !== 'esriGeometryPolygon') { note(title, 'not parcel shapes'); continue; }
+    if (!/query/i.test(info.capabilities ?? 'Query')) { note(title, 'can’t be searched'); continue; }
     const fields = findFields(info.fields ?? []);
-    if (!fields.owner) continue;
+    if (!fields.owner) { note(title, 'no owner-name field (county may hide owners)'); continue; }
     const ext = extentToLatLng(info.extent);
-    if (ext && !overlaps(ext, county.box)) continue;
+    if (ext && !overlaps(ext, county.box)) { note(title, 'covers a different area'); continue; }
     // Ask the server whether it has parcels in this county at all; this works
     // whatever projection the layer is in (e.g. a same-named county elsewhere).
     if (!ext) {
       try {
         const n = await queryLayer(url, { where: '1=1', returnCountOnly: true, ...envelope(county.box) }, signal);
-        if (!(n.count > 0)) continue;
-      } catch { continue; }
+        if (!(n.count > 0)) { note(title, 'no parcels in this county'); continue; }
+      } catch (err) { note(title, `couldn’t check coverage (${err.message})`); continue; }
     }
     const text = `${item.title} ${l.name}`;
     const score = 3
@@ -134,7 +140,7 @@ async function inspectService(item, county, signal) {
       + (fields.acres ? 1 : 0) + (fields.address ? 1 : 0) + (fields.id ? 1 : 0)
       - (/sold|sales|historic|20[01]\d|zoning|easement|subdivision|plat/i.test(text) ? 4 : 0);
     out.push({
-      url, title: `${item.title}${l.name && l.name !== item.title ? ` — ${l.name}` : ''}`, owner: item.owner,
+      url, title, owner: item.owner,
       fields, score, max: info.maxRecordCount ?? 1000,
       paging: Boolean(info.advancedQueryCapabilities?.supportsPagination),
     });
@@ -145,14 +151,14 @@ async function inspectService(item, county, signal) {
 const searching = new Map();
 // county: { abbr, fips, name, stateName, box }
 // → { status: 'pinned' | 'found' | 'none' | 'not-covered', service?, candidates? }
-export function parcelService(county, signal) {
+export function parcelService(county) {
   if (!parcelsCovered(county.abbr)) return Promise.resolve({ status: 'not-covered' });
   const p = pinned(county.abbr, county.fips);
   if (p) return Promise.resolve({ status: 'pinned', service: p });
   const key = `${county.abbr}-${county.fips}`;
   const known = foundAll()[key];
   if (known && !known.none) return Promise.resolve({ status: 'found', service: known, candidates: known.candidates });
-  if (known?.none && Date.now() - known.at < RETRY_NONE_AFTER) return Promise.resolve({ status: 'none' });
+  if (known?.none && Date.now() - known.at < RETRY_NONE_AFTER) return Promise.resolve({ status: 'none', tried: known.tried ?? [] });
   if (!searching.has(key)) {
     searching.set(key, (async () => {
       const name = county.name.replace(/ (County|Parish|Borough|Census Area|Municipality)$/i, '');
@@ -162,6 +168,9 @@ export function parcelService(county, signal) {
         `(parcel OR parcels OR "tax parcels") AND "${name}" AND ("${county.stateName}" OR ${county.abbr}) AND ${types}`,
         `(parcel OR parcels OR "tax parcels") AND "${county.stateName}" AND ${types}`,
       ];
+      // Not tied to the map's moves: panning mustn't restart a half-done search.
+      const signal = undefined;
+      const tried = [];
       const items = new Map();
       for (const q of queries) {
         const r = await getJson(ARCGIS_SEARCH, { f: 'json', q, num: 20, sortField: 'numviews', sortOrder: 'desc' }, signal);
@@ -169,14 +178,16 @@ export function parcelService(county, signal) {
       }
       const candidates = [];
       for (const item of [...items.values()].slice(0, 24)) {
-        try { candidates.push(...await inspectService(item, { ...county, name }, signal)); } catch { /* unreachable service: skip */ }
+        try { candidates.push(...await inspectService(item, { ...county, name }, signal, tried)); } catch (err) {
+          tried.push({ title: item.title, url: item.url, reason: /fetch|network|cors/i.test(err.message) ? 'server blocks browser apps or is offline' : err.message });
+        }
         if (candidates.some((c) => c.score >= 12)) break;
       }
       candidates.sort((a, b) => b.score - a.score);
       const all = foundAll();
       if (!candidates.length) {
-        all[key] = { none: true, at: Date.now() }; save(FOUND_KEY, all);
-        return { status: 'none' };
+        all[key] = { none: true, at: Date.now(), tried: tried.slice(0, 30), searched: items.size }; save(FOUND_KEY, all);
+        return { status: 'none', tried, searched: items.size };
       }
       const service = { ...candidates[0], county: `${county.name}, ${county.abbr}`, at: Date.now(), candidates: candidates.slice(0, 6).map(({ url, title, score }) => ({ url, title, score })) };
       all[key] = service; save(FOUND_KEY, all);

@@ -2,6 +2,7 @@
 import { h } from '../../ui.js';
 import { COVERAGE, FOCUS_REGIONS, STATES, PARCEL_SERVICES, parcelStatus } from './config.js';
 import { foundServices } from './parcels.js';
+import { CHECKS, runChecks } from './diagnostics.js';
 
 export function coverageView() {
   const byAbbr = Object.fromEntries(STATES.map((s) => [s.abbr, s]));
@@ -12,6 +13,7 @@ export function coverageView() {
       h('span', { class: 'small' }, s === 'connected' ? ' ✓ statewide' : counties ? ` · ${counties} counties pinned` : ' · found automatically'));
   };
   return h('div', { class: 'land-page' },
+    checksCard(),
     h('section', { class: 'land-card' },
       h('h2', {}, 'What’s connected'),
       h('p', { class: 'muted' }, `Filled in by Claude · last updated ${COVERAGE.updated}. Everything below is live: it is fetched from the source each time you look, nothing is copied.`),
@@ -46,4 +48,23 @@ function foundList() {
       h('strong', {}, f.county), ' — ',
       h('a', { class: 'land-a', href: f.url, target: '_blank', rel: 'noopener' }, f.title),
       f.chosen ? ' (picked by you)' : ''))));
+}
+
+// Test every data source from this browser.
+function checksCard() {
+  const list = h('ul', { class: 'land-checks' });
+  const button = h('button', { type: 'button', class: 'btn primary small', onclick: async () => {
+    button.disabled = true; button.textContent = 'Checking…';
+    const rows = CHECKS.map((c) => h('li', {}, h('span', { class: 'land-check-mark' }, '…'), h('strong', {}, c.name), h('span', { class: 'muted small' }, ' checking')));
+    list.replaceChildren(...rows);
+    await runChecks((i, r) => {
+      rows[i].replaceChildren(h('span', { class: `land-check-mark ${r.ok ? 'ok' : 'bad'}` }, r.ok ? '✓' : '✗'), h('strong', {}, CHECKS[i].name),
+        h('span', { class: `small ${r.ok ? 'muted' : 'land-err'}` }, ` ${r.detail} · ${r.ms} ms`));
+    });
+    button.disabled = false; button.textContent = 'Check again';
+  } }, 'Check connections');
+  return h('section', { class: 'land-card' },
+    h('h2', {}, 'Connection check'),
+    h('p', { class: 'muted small' }, 'Something not loading? This tests each live data source from your browser. Send Claude a screenshot of the results.'),
+    h('div', {}, button), list);
 }

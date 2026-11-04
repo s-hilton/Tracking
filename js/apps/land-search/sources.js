@@ -10,7 +10,7 @@ import { fromEsriRings, centerOf, ringAcres, boundsOf, pointInRings, distanceToL
 const TIGER = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb';
 // OpenStreetMap's query servers. The main one is often busy, so each request
 // falls through to the next mirror on a timeout, rate limit or server error.
-const OVERPASS = [
+export const OVERPASS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter',

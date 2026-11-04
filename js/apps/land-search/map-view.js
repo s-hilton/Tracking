@@ -193,7 +193,8 @@ export function mapView(ctx) {
       if (!st) { parcelInfo = null; return null; }
       const county = { abbr: st.abbr, fips: at.fips, name: at.name, stateName: st.name, box: boundsOf(at.rings) };
       parcelInfo = { county, status: 'searching' }; draw();
-      const r = await parcelService(county, signal);
+      const r = await parcelService(county);
+      if (signal.aborted) return null;
       parcelInfo = { county, ...r };
       return r.service ? governmentParcels(r.service, box, { zoom: z, countyName: county.name }, signal) : null;
     }, (r) => { data.parcels = r?.features ?? []; data.parcelsMore = r?.more; });
@@ -276,14 +277,20 @@ export function mapView(ctx) {
   function parcelNote() {
     const { county, status: st, service, candidates } = parcelInfo;
     const where = `${county.name}, ${county.abbr}`;
-    if (st === 'searching') return h('p', { class: 'land-note planned' }, `Looking for ${where}’s free parcel service…`);
+    if (st === 'searching') return h('p', { class: 'land-note planned' }, `Looking for ${where}’s free parcel service… The first look at a county can take up to a minute; it’s remembered after that.`);
     if (st === 'not-covered') {
       return h('p', { class: 'land-note todo' }, h('strong', {}, `⚠ Parcel data not connected for ${where} — ask Claude to add it. `),
         'You’re seeing local-government parks/open space and public buildings only.');
     }
     if (st === 'none') {
+      const tried = parcelInfo.tried ?? [];
       return h('div', { class: 'land-note todo' }, h('strong', {}, `⚠ No free parcel service with owner names found for ${where} — ask Claude to add one. `),
-        'Some counties only sell parcel data or keep it on their own website.', pasteLink(county));
+        'Some counties only sell parcel data or keep it on their own website.',
+        h('details', { class: 'land-switch' }, h('summary', {}, `What was tried (${tried.length})`),
+          tried.length ? h('ul', {}, ...tried.map((t) => h('li', { class: 'small' }, h('a', { class: 'land-a', href: t.url, target: '_blank', rel: 'noopener' }, t.title), ` — ${t.reason}`)))
+            : h('p', { class: 'small muted' }, 'ArcGIS Online returned no parcel services for this county.')),
+        h('button', { type: 'button', class: 'link-btn', onclick: () => switchService(county, null) }, 'Search again'),
+        pasteLink(county));
     }
     const others = (candidates ?? []).filter((c) => c.url !== service.url);
     return h('div', { class: 'land-note ok' },
@@ -529,7 +536,12 @@ export function mapView(ctx) {
     // Click any parcel to see who owns it, government or not.
     let inspectCtl = null;
     map.on('click', (e) => {
-      if (!ui.layers.parcels || map.getZoom() < MIN_ZOOM.parcels || !parcelInfo?.service) return;
+      if (!ui.layers.parcels || map.getZoom() < MIN_ZOOM.parcels) return;
+      if (!parcelInfo?.service) {
+        showError(parcelInfo?.status === 'searching' ? 'Still looking for this county’s parcel data; try clicking again in a moment.' : 'Parcels can’t be clicked here: no parcel data is connected for this county yet (see the note above).');
+        return;
+      }
+      status.error = '';
       inspectCtl?.abort(); inspectCtl = new AbortController();
       parcelAt(parcelInfo.service, { lat: e.latlng.lat, lng: e.latlng.lng }, { countyName: parcelInfo.county.name }, inspectCtl.signal)
         .then((f) => { if (f) select(f); })

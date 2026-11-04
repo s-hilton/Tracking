@@ -89,10 +89,11 @@ export function institutionsView(ctx) {
     pickCtl?.abort(); pickCtl = new AbortController(); const { signal } = pickCtl;
     ui.countyFips = fips; ui.muniId = ''; countySel.value = fips; ctx.persist();
     muniList = []; options(muniSel, [], 'All cities & towns');
-    if (!fips) { setArea(stateRings, stateByFips(ui.stateFips).name, fit); return; }
+    if (!fips) { setArea(stateRings, stateByFips(ui.stateFips).name, fit); loadAll(); return; }
     try {
       const shape = await src.countyShape(ui.stateFips, fips, signal);
       setArea(shape, `${countyList.find((c) => c.fips === fips)?.name}, ${stateByFips(ui.stateFips).abbr}`, fit);
+      loadAll();
       muniList = await src.municipalities(ui.stateFips, fips, shape, signal);
       options(muniSel, muniList, `All cities & towns (${muniList.length})`, '');
     } catch (err) {
@@ -105,7 +106,7 @@ export function institutionsView(ctx) {
     ui.muniId = id; muniSel.value = id; ctx.persist();
     if (!id) return pickCounty(ui.countyFips, fit);
     const m = muniList.find((x) => x.id === id);
-    try { setArea(await src.municipalityShape(m, signal), `${m.name}, ${stateByFips(ui.stateFips).abbr}`, fit); } catch (err) {
+    try { setArea(await src.municipalityShape(m, signal), `${m.name}, ${stateByFips(ui.stateFips).abbr}`, fit); loadAll(); } catch (err) {
       if (!signal.aborted) { status.error = `Couldn’t load ${m.name}: ${err.message}`; draw(); }
     }
   }
@@ -138,11 +139,13 @@ export function institutionsView(ctx) {
     if (!st) return;
     loadCtl?.abort(); loadCtl = new AbortController(); const { signal } = loadCtl;
     const box = boundsOf(stateRings);
+    const areaBox = ui.countyFips && area.rings !== stateRings ? boundsOf(area.rings) : null;
     for (const [type, load] of Object.entries(LOADERS)) {
       if (!ui.types[type]) { status[type] = ''; continue; }
-      if (type !== 'college' && !box) continue;
+      if (type === 'museum' && !areaBox) { status.museum = 'pick'; items.museum = []; continue; }
+      if (type === 'tribe' && !box) continue;
       status[type] = 'loading';
-      (type === 'college' ? load(st, signal) : load(st, box, signal))
+      (type === 'college' ? load(st, signal) : load(st, type === 'museum' ? areaBox : box, signal))
         .then((r) => {
           if (signal.aborted || ui.stateFips !== st.fips) return;
           items[type] = r.items; status[type] = '';
@@ -199,6 +202,7 @@ export function institutionsView(ctx) {
     const s = status[type];
     if (!s) return null;
     if (s === 'loading') return h('li', { class: 'muted' }, `Loading ${INST_TYPES[type].label.toLowerCase()}…`);
+    if (s === 'pick') return h('li', { class: 'muted' }, 'Pick a county (or city/town) to load its museums.');
     return h('li', { class: 'land-err' }, `Couldn’t load ${INST_TYPES[type].label.toLowerCase()}: ${s.slice(6)} `,
       h('button', { type: 'button', class: 'link-btn', onclick: () => loadAll() }, 'Try again'));
   }

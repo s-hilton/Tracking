@@ -112,15 +112,17 @@ export function colleges(st, signal) {
   }, signal);
 }
 
-// Museums: OpenStreetMap first (most complete); Wikidata if every OpenStreetMap
-// server is busy. Both are merged when both answer, so nothing is missed.
-export function museums(st, stateBox, signal) {
-  return cached(`museum:${st.fips}`, async () => {
+// Museums for one county or town (a whole state is too big a question for the
+// free servers). OpenStreetMap first (most complete), Wikidata alongside; both
+// are merged so nothing is missed, and either one alone is enough.
+export function museums(st, box, signal) {
+  const b = `${box.s.toFixed(4)},${box.w.toFixed(4)},${box.n.toFixed(4)},${box.e.toFixed(4)}`;
+  return cached(`museum:${b}`, async () => {
     const [osm, wd] = await Promise.allSettled([
-      overpass(`[out:json][timeout:90];area["ISO3166-2"="US-${st.abbr}"]["admin_level"="4"]->.a;(nwr["tourism"="museum"](area.a);nwr["amenity"="planetarium"](area.a););out center tags;`),
-      wikidataMuseums(stateBox),
+      overpass(`[out:json][timeout:40];(nwr["tourism"="museum"](${b});nwr["amenity"="planetarium"](${b}););out center tags;`),
+      wikidataMuseums(box),
     ]);
-    if (osm.status === 'rejected' && wd.status === 'rejected') throw osm.reason;
+    if (osm.status === 'rejected' && wd.status === 'rejected') throw new Error(`${osm.reason.message}; Wikidata: ${wd.reason.message}`);
     const items = osm.status === 'fulfilled' ? osm.value.map((el) => fromOsm(el, 'museum')).filter((m) => m.center && m.name !== 'Museum') : [];
     const seen = new Set(items.map((m) => m.wikidata).filter(Boolean));
     const names = new Set(items.map((m) => m.name.toLowerCase()));
@@ -131,8 +133,8 @@ export function museums(st, stateBox, signal) {
   }, signal);
 }
 
-// Anything Wikidata counts as a museum (or planetarium) inside the state's
-// bounding box; the view then keeps only those inside the state itself.
+// Anything Wikidata counts as a museum (or planetarium) inside the area's
+// bounding box; the view then keeps only those inside the area itself.
 async function wikidataMuseums(box) {
   if (!box) throw new Error('No state outline');
   const query = `SELECT ?m ?mLabel ?coord ?website ?typeLabel WHERE {
