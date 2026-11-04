@@ -11,7 +11,7 @@ const TIGER = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb';
 const OVERPASS = 'https://overpass-api.de/api/interpreter';
 const ARCGIS_SEARCH = 'https://www.arcgis.com/sharing/rest/search';
 
-async function getJson(url, params = {}, signal) {
+export async function getJson(url, params = {}, signal) {
   const u = new URL(url);
   for (const [k, v] of Object.entries(params)) if (v != null) u.searchParams.set(k, v);
   const res = await fetch(u, { signal });
@@ -45,11 +45,11 @@ async function findLayer(service, test) {
   return layerCache.get(key);
 }
 
-async function queryLayer(layerUrl, params, signal) {
+export async function queryLayer(layerUrl, params, signal) {
   return getJson(`${layerUrl}/query`, { f: 'json', outSR: 4326, ...params }, signal);
 }
 
-const envelope = ({ s, w, n, e }) => ({
+export const envelope = ({ s, w, n, e }) => ({
   geometry: `${w},${s},${e},${n}`, geometryType: 'esriGeometryEnvelope', inSR: 4326, spatialRel: 'esriSpatialRelIntersects',
 });
 
@@ -71,6 +71,27 @@ export async function counties(stateFips, signal) {
     fips: String(attr(a, 'COUNTY')).padStart(3, '0'),
     name: attr(a, 'NAME', 'BASENAME'),
   })).sort((x, y) => x.name.localeCompare(y.name));
+}
+
+// Which county a point is in (for loading parcels wherever you zoom in).
+const countyAtCache = new Map();
+export async function countyAt({ lat, lng }, signal) {
+  const key = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+  if (countyAtCache.has(key)) return countyAtCache.get(key);
+  const layer = await findLayer(STATE_COUNTY, /^counties$/i);
+  const d = await queryLayer(layer, {
+    geometry: `${lng},${lat}`, geometryType: 'esriGeometryPoint', inSR: 4326, spatialRel: 'esriSpatialRelIntersects',
+    outFields: '*', returnGeometry: true, maxAllowableOffset: 0.005,
+  }, signal);
+  const f = d.features?.[0];
+  const result = f ? {
+    stateFips: String(attr(f.attributes, 'STATE')).padStart(2, '0'),
+    fips: String(attr(f.attributes, 'COUNTY')).padStart(3, '0'),
+    name: attr(f.attributes, 'NAME', 'BASENAME'),
+    rings: fromEsriRings(f.geometry?.rings),
+  } : null;
+  countyAtCache.set(key, result);
+  return result;
 }
 
 export async function countyShape(stateFips, countyFips, signal) {

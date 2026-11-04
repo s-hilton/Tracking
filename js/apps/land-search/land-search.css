@@ -78,3 +78,11 @@
 .land-chip { padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); font-size: 12px; }
 .land-chip.connected { border-color: #16a34a; }
 .land-chip.planned { border-color: #0ea5e9; }
+.land-a { color: var(--accent); text-decoration: none; overflow-wrap: anywhere; }
+.land-a:hover { text-decoration: underline; }
+.land-found ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+.land-found summary, .land-switch summary { cursor: pointer; font-size: 12px; font-weight: 600; }
+.land-switch { margin-top: 6px; }
+.land-switch ul { margin: 4px 0 0; padding-left: 16px; display: grid; gap: 3px; }
+.land-switch .link-btn { font-size: 12px; text-align: left; }
+.land-chip.auto { border-color: #0ea5e9; }

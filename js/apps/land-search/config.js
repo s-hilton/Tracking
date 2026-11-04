@@ -33,14 +33,16 @@ export const regionOf = (abbr) => Object.keys(FOCUS_REGIONS).find((r) => FOCUS_R
 // are added one area at a time. Keyed by state abbreviation; a state entry can
 // cover the whole state or list the counties that are connected.
 //   AZ: { statewide: false, counties: { '013': { name: 'Maricopa', url: '…', ownerField: 'OWNER_NAME' } } }
-// Empty for now: stage 2 fills in the Southwest and Northeast.
+// Pinned services always win over automatic discovery (see parcels.js). Empty for
+// now: in focus states each county's service is found automatically in the browser;
+// once one is confirmed to work, pin it here.
 export const PARCEL_SERVICES = {};
 
 // What the map can tell you about a state's parcels.
 export function parcelStatus(abbr, countyFips = '') {
   const svc = PARCEL_SERVICES[abbr];
   if (svc?.statewide || (countyFips && svc?.counties?.[countyFips])) return 'connected';
-  if (FOCUS.has(abbr)) return 'planned';
+  if (FOCUS.has(abbr)) return 'auto';
   return 'not-connected';
 }
 
@@ -54,8 +56,8 @@ export const COVERAGE = {
     { name: 'Power lines and substations', source: 'OpenStreetMap via Overpass (live)', note: 'Shown on the map when zoomed in; the distance to the nearest line and substation is worked out when you open a site.' },
     { name: 'Broadband / fiber', source: 'FCC National Broadband Map (link)', note: 'The FCC has no free live feed for apps, so each site links to the FCC map at that spot.' },
   ],
+  parcels: 'In these states, when you zoom in to street level Land Search works out which county you’re in, searches ArcGIS Online for that county’s (or the state’s) free parcel service, and keeps the best one that has an owner-name field and covers the county. It then shows every parcel whose owner reads like a local government: cities, counties, towns, townships, boroughs, villages, school districts, housing authorities and special districts (state, federal and private owners are left out). Claude couldn’t test individual county services from its own environment, so each county’s source is found and checked in your browser the first time you look; if one is wrong you can switch it from the map, and tell Claude so it can be pinned.',
   pending: [
-    { name: 'Every parcel with owner names (empty lots included)', where: 'Southwest (AZ, NM, NV, UT, CO) and Northeast (ME, NH, VT, MA, RI, CT, NY, NJ, PA)', when: 'Stage 2' },
     { name: 'Universities & colleges, tribal nations, museums', where: 'Nationwide', when: 'Stage 3' },
     { name: 'Government website, phone and current leadership', where: 'Nationwide (where free data has it)', when: 'Stage 3' },
     { name: 'Saved sites, outreach pipeline, follow-ups on the sticky note', where: '—', when: 'Stage 4' },

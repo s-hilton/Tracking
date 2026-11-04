@@ -4,6 +4,7 @@ import { h, loadStyles } from '../../ui.js';
 import { STATES, stateByFips, parcelStatus, regionOf } from './config.js';
 import * as src from './sources.js';
 import { boundsOf, pointInRings, formatAcres, formatDistance } from './geo.js';
+import { parcelService, governmentParcels, chooseParcelService } from './parcels.js';
 
 const LEAFLET = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist';
 let leafletPromise = null;
@@ -14,9 +15,10 @@ function loadLeaflet() {
 }
 
 // Each layer loads once you're zoomed in this far (keeps requests small).
-const MIN_ZOOM = { land: 9, buildings: 12, power: 11 };
+const MIN_ZOOM = { land: 9, buildings: 12, power: 11, parcels: 14 };
 const LAND_COLOR = '#16a34a';
 const POWER_COLOR = '#ea580c';
+const PARCEL_COLOR = '#db2777';
 
 const BASEMAPS = {
   map: { label: 'Map', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', max: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' },
@@ -26,6 +28,7 @@ const BASEMAPS = {
 export function mapView(ctx) {
   const ui = ctx.state;
   ui.layers ??= { land: true, library: true, townhall: true, community_centre: true, fire_station: false, power: false };
+  ui.layers.parcels ??= true;
   ui.basemap ??= 'map';
   ui.insideOnly ??= true;
 
@@ -34,8 +37,9 @@ export function mapView(ctx) {
   let destroyed = false;
   let countyList = []; let muniList = [];
   let area = { rings: [], label: '' }; // the selected state / county / municipality outline
-  let data = { land: [], buildings: [], power: null };
-  let status = { land: '', buildings: '', power: '' };
+  let data = { land: [], buildings: [], power: null, parcels: [] };
+  let status = { land: '', buildings: '', power: '', parcels: '' };
+  let parcelInfo = null; // { county, status, service, candidates } for the county in view
   let selected = null; let selectedPower = null;
   let loadCtl = null; let pickCtl = null; let powerCtl = null;
 
@@ -63,6 +67,7 @@ export function mapView(ctx) {
     h('div', { class: 'land-field' }, h('span', { class: 'land-label' }, 'Where'), stateSel, countySel, muniSel,
       h('label', { class: 'land-check small' }, h('input', { type: 'checkbox', checked: ui.insideOnly, onchange: (e) => { ui.insideOnly = e.target.checked; ctx.persist(); draw(); } }), 'Only list results inside the selected area')),
     h('div', { class: 'land-field' }, h('span', { class: 'land-label' }, 'Show'),
+      check('parcels', 'Government-owned parcels (zoom in)', PARCEL_COLOR),
       check('land', 'Local-government land (parks, open space)', LAND_COLOR),
       ...Object.entries(src.BUILDING_KINDS).map(([k, b]) => check(k, b.label, b.color)),
       check('power', 'Power lines & substations', POWER_COLOR)),
@@ -191,6 +196,17 @@ export function mapView(ctx) {
     job('buildings', kinds.length, MIN_ZOOM.buildings,
       () => src.publicBuildings(box, kinds, signal),
       (r) => { data.buildings = r ?? []; });
+    job('parcels', ui.layers.parcels, MIN_ZOOM.parcels, async () => {
+      const c = map.getCenter();
+      const at = await src.countyAt({ lat: c.lat, lng: c.lng }, signal);
+      const st = at && stateByFips(at.stateFips);
+      if (!st) { parcelInfo = null; return null; }
+      const county = { abbr: st.abbr, fips: at.fips, name: at.name, stateName: st.name, box: boundsOf(at.rings) };
+      parcelInfo = { county, status: 'searching' }; draw();
+      const r = await parcelService(county, signal);
+      parcelInfo = { county, ...r };
+      return r.service ? governmentParcels(r.service, box, { zoom: z }, signal) : null;
+    }, (r) => { data.parcels = r?.features ?? []; data.parcelsMore = r?.more; });
     job('power', ui.layers.power, MIN_ZOOM.power,
       () => src.powerGrid(box, signal),
       (r) => { data.power = r; });
@@ -206,7 +222,7 @@ export function mapView(ctx) {
   const inArea = (f) => !ui.insideOnly || !area.rings.length || !f.center || pointInRings(f.center.lat, f.center.lng, area.rings);
 
   function visible() {
-    return [...data.land, ...data.buildings].filter(sizeOk);
+    return [...data.parcels, ...data.land, ...data.buildings].filter(sizeOk);
   }
 
   function drawArea() {
@@ -216,7 +232,7 @@ export function mapView(ctx) {
   }
 
   function styleFor(f) {
-    const color = f.category === 'land' ? LAND_COLOR : src.BUILDING_KINDS[f.buildingKind]?.color ?? '#64748b';
+    const color = f.category === 'parcel' ? PARCEL_COLOR : f.category === 'land' ? LAND_COLOR : src.BUILDING_KINDS[f.buildingKind]?.color ?? '#64748b';
     const on = selected?.id === f.id;
     return { color, weight: on ? 3 : 1.5, fillColor: color, fillOpacity: on ? 0.45 : 0.25, radius: on ? 9 : 6 };
   }
@@ -253,16 +269,43 @@ export function mapView(ctx) {
     renderSide();
   }
 
+  function parcelNote() {
+    const { county, status: st, service, candidates } = parcelInfo;
+    const where = `${county.name}, ${county.abbr}`;
+    if (st === 'searching') return h('p', { class: 'land-note planned' }, `Looking for ${where}’s free parcel service…`);
+    if (st === 'not-covered') {
+      return h('p', { class: 'land-note todo' }, h('strong', {}, `⚠ Parcel data not connected for ${where} — ask Claude to add it. `),
+        'You’re seeing local-government parks/open space and public buildings only.');
+    }
+    if (st === 'none') {
+      return h('p', { class: 'land-note todo' }, h('strong', {}, `⚠ No free parcel service with owner names found for ${where} — ask Claude to add one. `),
+        'Some counties only sell parcel data or keep it on their own website.');
+    }
+    const others = (candidates ?? []).filter((c) => c.url !== service.url);
+    return h('div', { class: 'land-note ok' },
+      h('div', {}, h('strong', {}, `Parcels for ${where}: `), service.title,
+        service.pinned ? ' (connected by Claude)' : ' (found automatically)'),
+      service.pinned ? null : h('details', { class: 'land-switch' }, h('summary', {}, 'Wrong source? Change it'),
+        h('ul', {}, ...others.map((c) => h('li', {}, h('button', { type: 'button', class: 'link-btn', onclick: () => switchService(county, c.url) }, c.title))),
+          h('li', {}, h('button', { type: 'button', class: 'link-btn', onclick: () => switchService(county, null) }, 'Search again')))));
+  }
+
+  async function switchService(county, url) {
+    try { await chooseParcelService(county, url); } catch (err) { showError(`Couldn’t use that source: ${err.message}`); return; }
+    data.parcels = []; loadView();
+  }
+
   function coverageNote() {
+    if (parcelInfo && ui.layers.parcels && map?.getZoom() >= MIN_ZOOM.parcels) return parcelNote();
     const st = stateByFips(ui.stateFips);
     if (!st) return h('p', { class: 'land-note' }, 'Pick a state to see what’s connected there. Coverage tab lists every source.');
     const county = countyList.find((c) => c.fips === ui.countyFips);
     const where = county ? `${county.name}, ${st.abbr}` : st.name;
     const s = parcelStatus(st.abbr, ui.countyFips);
     if (s === 'connected') return h('p', { class: 'land-note ok' }, `✓ Parcel data connected for ${where}.`);
-    if (s === 'planned') {
-      return h('p', { class: 'land-note planned' }, h('strong', {}, 'Parcels (every lot, incl. empty ones): coming in stage 2. '),
-        `${where} is in your ${regionOf(st.abbr)} focus area. Until then you’re seeing local-government parks/open space and public buildings.`);
+    if (s === 'auto') {
+      return h('p', { class: 'land-note planned' }, h('strong', {}, 'Zoom in to street level to load government-owned parcels. '),
+        `${where} is in your ${regionOf(st.abbr)} focus area: Land Search finds each county’s free parcel service automatically.`);
     }
     return h('p', { class: 'land-note todo' }, h('strong', {}, `⚠ Parcel data not connected for ${where} — ask Claude to add it. `),
       'You’re seeing local-government parks/open space and public buildings only.');
@@ -281,10 +324,12 @@ export function mapView(ctx) {
     const list = visible().filter(inArea).sort((a, b) => (b.acres ?? -1) - (a.acres ?? -1));
     const shown = list.slice(0, 200);
     const statusLines = [
+      layerStatus('parcels', 'government-owned parcels'),
       layerStatus('land', 'public land'),
       layerStatus('buildings', 'public buildings'),
       layerStatus('power', 'power lines'),
       status.error ? h('li', { class: 'land-err' }, status.error) : null,
+      data.parcelsMore && ui.layers.parcels && status.parcels === '' ? h('li', { class: 'muted' }, 'More parcels here than one load returns: zoom in to see them all.') : null,
       data.landMore && ui.layers.land && status.land === '' ? h('li', { class: 'muted' }, 'More public land here than one load returns: zoom in to see it all.') : null,
     ].filter(Boolean);
     results.replaceChildren(...[
@@ -348,12 +393,15 @@ export function mapView(ctx) {
       h('dl', { class: 'land-dl' },
         row('Owner', owner || 'Not recorded in this source'),
         row('Owner type', f.ownerType),
+        row('Parcel ID', f.parcelId),
+        row('Land use', f.landUse),
         row('Managed by', f.manager && f.manager !== owner ? f.manager : null),
         row('Size', f.acres ? formatAcres(f.acres) : 'Unknown'),
         row('Public access', f.access),
         row('Address', f.address),
         row('Phone', f.phone),
         row('Location', f.center ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : null)),
+      f.category === 'parcel' ? h('p', { class: 'land-note small' }, 'Picked out because the owner’s name reads like a local government. Confirm with the county assessor before reaching out.') : null,
       f.source === 'OpenStreetMap' ? h('p', { class: 'land-note small' }, 'Ownership from OpenStreetMap isn’t confirmed. Check the county assessor’s records before reaching out.') : null,
       h('h4', {}, 'Power & fiber'),
       power,
@@ -367,11 +415,12 @@ export function mapView(ctx) {
         owner ? link(search(`${owner} real estate property management department`), 'Real estate / property office') : null,
         owner ? link(search(`${owner} public works department contact`), 'Public works') : null,
         !owner && place ? link(search(`${place} government property contact`), `Search ${place} government`) : null),
-      h('p', { class: 'muted small' }, 'Leadership, phone numbers and “Save as site” arrive in stages 3–4.'),
+      h('p', { class: 'muted small' }, 'Leadership and phone numbers arrive in stage 3, “Save as site” in stage 4.'),
       h('h4', {}, 'Look at it'),
       h('div', { class: 'land-links' },
         f.center ? link(`https://www.google.com/maps/@?api=1&map_action=map&center=${lat},${lng}&zoom=18&basemap=satellite`, 'Google Maps satellite') : null,
-        f.osm ? link(f.osm, 'OpenStreetMap record') : null));
+        f.osm ? link(f.osm, 'OpenStreetMap record') : null,
+        f.sourceUrl ? link(f.sourceUrl, 'Parcel data source') : null));
   }
 
   // ---- Map ----------------------------------------------------------------
