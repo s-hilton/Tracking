@@ -6,7 +6,7 @@ A personal dashboard that works like a desktop: tap an icon and the app opens in
 - **Phone:** you get a home screen of icons. Apps open full screen, and the bottom bar has **All apps**, **Home** and **Open apps** (switcher) buttons.
 - **Installable:** it's a Progressive Web App (PWA), so it can be added to a phone home screen or installed on a computer, opens without browser chrome and keeps working offline.
 
-**To-do sticky note:** the dashboard has a sticky note that gathers what needs doing from every app: Rolodex follow-ups, LOI follow-up tasks and quiet companies, investor follow-ups and updates owed, unfinished Tasks. Tick an item to finish it, or tap it to jump straight to it in its app. Tap "To do" to fold the note away.
+**To-do sticky note:** the dashboard has a sticky note that gathers what needs doing from every app: Rolodex follow-ups, LOI follow-up tasks and quiet companies, investor follow-ups and updates owed, Land Search site follow-ups, unfinished Tasks. Tick an item to finish it, or tap it to jump straight to it in its app. Tap "To do" to fold the note away.
 
 ## Built-in apps
 
@@ -19,6 +19,7 @@ A personal dashboard that works like a desktop: tap an icon and the app opens in
 | Clock | Time, date and a stopwatch with laps |
 | Settings | Theme, wallpaper, accent colour, web apps, install, reset |
 | LOIs *(Astra Retrieval folder)* | Astra Retrieval business development: companies, pipeline, LOIs, follow-ups, analytics |
+| Land Search *(Astra Retrieval folder)* | Find land owned by local governments for ground stations: a map with state → county → city/town filters, every parcel owned by a city, county, town, township, school or special district in the Southwest and Northeast (each county's free parcel service is found automatically as you zoom in), local-government parks and open space (USGS PAD-US), libraries, town halls, community centres and fire stations (OpenStreetMap), a size filter, power lines and substations with the distance from each site, an FCC broadband link, the county and city/town at each site with official website, phone and current leadership (Wikidata), an **Institutions** tab of universities & colleges (IPEDS), tribal nations (Census) and museums (OpenStreetMap) with the same filters, links for reaching the owner, and a **Pipeline** of saved sites (found → contacted → talking → agreement / declined) with contacts, an activity log and follow-ups a week out that land on the sticky note. All map data is live from public sources; the **Coverage** tab notes what's connected and where each county's parcels came from |
 | Investors *(Astra Retrieval folder)* | Fundraising tracker: rounds, investors with contact info and people, stages (to contact → contacted → following up → meeting → due diligence → term sheet → committed / passed), why they passed, "keep in mind" firms carried into the next round, an investor-update list, Paste from spreadsheet (websites, emails, contact links) and Export to Excel |
 
 **Web apps:** in Settings → Web apps you can add any website. It gets the site's own icon, and it opens inside a window. Some sites (Google, Facebook, banks, …) refuse to be shown inside other pages. For those, use the **Open in tab** button in the window's toolbar.
@@ -85,6 +86,10 @@ js/apps/investor-tracker/     the Investors app (inside Astra Retrieval): fundra
                                 config.js (stages, pass reasons, reminder days), data.js, form.js, editors.js,
                                 views/ (pipeline, investors + firm page, updates),
                                 excel.js + xlsx.js (Export to Excel), import.js (Paste from spreadsheet)  ⇄ supabase/migrations/*_investors.sql
+js/apps/land-search/         the Land Search app (inside Astra Retrieval): config.js (states, focus regions, parcel
+                                services, the Coverage note), sources.js (live Census / PAD-US / OpenStreetMap data),
+                                parcels.js (finds each county's parcel service, picks out government owners),
+                                institutions.js + institutions-view.js, contacts.js (Wikidata), leaflet.js, geo.js, map-view.js, coverage-view.js   (no data stored yet)
 js/folder.js                  createFolder() helper used by folders
 js/todos.js                   the dashboard's to-do sticky note (gathers every app's todos())
 js/intents.js                 open an app at a particular record (used by the sticky note)
@@ -172,7 +177,7 @@ return () => offIntent();
 ```
 
 Keep `todos()` fast and only include things that need doing now (due today or overdue), not everything in the app.
-When the data changes, fire `window.dispatchEvent(new Event('badges-changed'))` (e.g. in a `store.subscribe`) so the note and icon badges refresh. The Rolodex, LOIs, Investors and Tasks apps are working examples.
+When the data changes, fire `window.dispatchEvent(new Event('badges-changed'))` (e.g. in a `store.subscribe`) so the note and icon badges refresh. The Rolodex, LOIs, Investors, Land Search and Tasks apps are working examples.
 
 **Badges and reminders:** an app can add `badge: () => number` (a red count on its icon; folders show the total of their apps) and `reminder: () => 'message' | null` (shown as a pop-up once a day when the dashboard opens). The LOIs app uses both for companies needing a follow-up.
 
