@@ -1,28 +1,24 @@
-// Land Search (lives in the Astra Retrieval folder): find land owned by local
-// governments, and friendly institutions, where a ground station could go.
-// Self-contained: this folder + supabase/migrations/*_land_sites.sql.
+// Land Search (lives in the Astra Retrieval folder): go through every government
+// in the country, and nearby institutions, to find places that might host a
+// ground station; record what you learn and track outreach.
+// Self-contained: this folder + supabase/migrations/*_land_sites*.sql.
 //
-//   config.js         states, focus regions, parcel services and the coverage note
-//   sources.js        live data: Census boundaries, PAD-US, OpenStreetMap, power grid
-//   geo.js            geometry helpers (point in polygon, acres, distances)
-//   map-view.js       the Map tab
-//   parcels.js        stage 2: finds each county's parcel service, picks out government owners
-//   institutions.js   stage 3: colleges (IPEDS), tribal lands (Census), museums (OpenStreetMap)
-//   contacts.js       government / institution websites, phones and leadership (Wikidata)
-//   institutions-view.js  the Institutions tab
-//   leaflet.js        loads the map library
-//   data.js           stage 4: saved sites (synced table land_sites), stages, follow-ups
-//   pipeline-view.js  the Pipeline tab and each saved site's page
-//   coverage-view.js  the Coverage tab (what's connected, what's next)
-//
-// Built in stages: 1 map + filters + public land, 2 parcels for the Southwest
-// and Northeast, 3 institutions + government contacts, 4 saved sites + pipeline.
+//   governments-view.js   Governments tab: state → county → city/town/township, tribal nations
+//   institutions-view.js  Institutions tab: universities & colleges, museums, planetariums on a map
+//   pipeline-view.js      Pipeline tab: everything marked Interested, and each record's page
+//   coverage-view.js      Coverage tab: what's connected + Check connections (diagnostics.js)
+//   record-editor.js      the shared editor: interest, stage, map-data link, website, contacts, parcels…
+//   data.js               records (synced table land_sites), interest, stages, follow-ups
+//   sources.js            Census boundaries (TIGERweb) + OpenStreetMap queries
+//   institutions.js       colleges (IPEDS), museums/planetariums (OpenStreetMap + Wikidata), tribal lands
+//   contacts.js           websites, phones and leadership (Wikidata)
+//   config.js, geo.js, leaflet.js
 import { h, loadStyles } from '../../ui.js';
 import { load, save } from '../../storage.js';
 import { onIntent } from '../../intents.js';
 import { sites, dueFollowUps, completeFollowUp, daysLate } from './data.js';
 import { pipelineView } from './pipeline-view.js';
-import { mapView } from './map-view.js';
+import { governmentsView } from './governments-view.js';
 import { coverageView } from './coverage-view.js';
 import { institutionsView } from './institutions-view.js';
 
@@ -33,7 +29,7 @@ let badgeTimer;
 sites.subscribe(() => { clearTimeout(badgeTimer); badgeTimer = setTimeout(() => window.dispatchEvent(new Event('badges-changed')), 300); });
 
 const TABS = {
-  map: { label: 'Map', view: mapView },
+  governments: { label: 'Governments', view: governmentsView },
   institutions: { label: 'Institutions', view: institutionsView },
   pipeline: { label: 'Pipeline', view: pipelineView },
   coverage: { label: 'Coverage', view: (ctx) => ({ el: coverageView(ctx) }) },
@@ -51,7 +47,7 @@ export default {
 
   reminder: () => {
     const n = dueFollowUps().length;
-    return n ? `${n} land site follow-up${n === 1 ? ' is' : 's are'} due.` : null;
+    return n ? `${n} Land Search follow-up${n === 1 ? ' is' : 's are'} due.` : null;
   },
 
   // On the dashboard's sticky note: saved sites whose follow-up is due
@@ -61,7 +57,7 @@ export default {
     const who = s.contacts.find((c) => c.name)?.name;
     return {
       id: `land:${s.id}`,
-      text: `Follow up on ${s.name || 'a land site'}`,
+      text: `Follow up with ${s.name || 'a Land Search contact'}`,
       detail: [who || s.owner, late > 0 ? `${late} day${late === 1 ? '' : 's'} overdue` : 'today'].filter(Boolean).join(' · '),
       tone: late > 0 ? 'overdue' : 'today',
       open: { site: s.id },
@@ -70,14 +66,14 @@ export default {
   }),
 
   mount(root) {
-    const state = { tab: 'map', ...load('land:ui', {}) };
-    if (!TABS[state.tab]) state.tab = 'map';
+    const state = { tab: 'governments', ...load('land:ui', {}) };
+    if (!TABS[state.tab]) state.tab = 'governments';
     const ctx = {
       state,
       persist: () => save('land:ui', state),
       go(tab, extra = {}) { Object.assign(state, extra); show(tab); },
-      // Jump to a saved site's spot on the Map tab.
-      showOnMap(site) { state.view = { lat: Number(site.lat), lng: Number(site.lng), zoom: 16 }; show('map'); },
+      // Jump to an institution's spot on the Institutions map.
+      showOnMap(site) { state.instFocus = { lat: Number(site.lat), lng: Number(site.lng) }; show('institutions'); },
     };
     const app = h('div', { class: 'app land' });
     const nav = h('nav', { class: 'land-nav', role: 'tablist' });

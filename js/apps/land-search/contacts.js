@@ -52,6 +52,11 @@ function shape(rows) {
   };
 }
 
+// A state, by its ISO code (Wikidata P300, e.g. US-PA).
+export async function stateContacts(abbr, signal) {
+  return shape(await sparql(`${SELECT} ?item wdt:P300 "US-${esc(abbr)}" . ${DETAILS} } LIMIT 40`, signal));
+}
+
 // A county, by its 5-digit FIPS code (Wikidata P882).
 export async function countyContacts(stateFips, countyFips, signal) {
   return shape(await sparql(`${SELECT} ?item wdt:P882 "${stateFips}${countyFips}" . ${DETAILS} } LIMIT 40`, signal));

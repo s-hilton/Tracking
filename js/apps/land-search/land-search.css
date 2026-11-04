@@ -138,3 +138,32 @@
 .land-activity li { display: grid; grid-template-columns: 90px 80px 1fr; gap: 8px; align-items: baseline; font-size: 13px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
 @container (max-width: 520px) { .land-activity li { grid-template-columns: 1fr; gap: 0; } }
 .land-paste { display: grid; grid-template-columns: 1fr auto; gap: 6px; margin-top: 4px; }
+.land-checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.land-checks li { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; font-size: 13px; }
+.land-check-mark { width: 16px; font-weight: 700; color: var(--muted); }
+.land-check-mark.ok { color: #16a34a; }
+.land-check-mark.bad { color: var(--danger); }
+
+/* Governments tab and the shared record editor */
+.land-gov-page { align-content: start; }
+.land-gov-selects { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.land-gov-card { border-left: 4px solid var(--c); }
+.land-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.land-card-head h2 { margin: 0; }
+.land-tracked > summary { cursor: pointer; font-weight: 600; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.land-tracked .land-site-list { margin-top: 10px; }
+
+.land-record { display: grid; gap: 12px; }
+.land-interest { display: grid; gap: 4px; }
+.land-interest .land-seg { flex-wrap: wrap; }
+.land-interest .land-seg-btn.on { background: var(--c); color: #fff; }
+.land-interest-badge { flex-shrink: 0; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; color: #fff; background: var(--c); white-space: nowrap; }
+.land-pipeline-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; padding: 10px; border-radius: 10px; background: var(--surface-2); }
+.land-pipeline-row .land-form-field.wide { grid-column: 1 / -1; }
+.land-input-row { display: flex; gap: 6px; align-items: center; }
+.land-input-row .input { flex: 1; min-width: 0; }
+.land-form-field .link-btn.small { justify-self: start; font-size: 12px; text-align: left; }
+.land-sub > summary { cursor: pointer; font-weight: 600; font-size: 13px; margin-bottom: 8px; }
+.land-leaders { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 13px; }
+.land-parcel .wide { grid-column: 1 / -1; }
+.land-detail .land-record { margin-top: 4px; }

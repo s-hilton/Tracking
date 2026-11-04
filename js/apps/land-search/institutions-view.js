@@ -3,17 +3,20 @@
 import { h } from '../../ui.js';
 import { STATES, stateByFips } from './config.js';
 import * as src from './sources.js';
-import { INST_TYPES, colleges, museums, tribes } from './institutions.js';
+import { INST_TYPES, colleges, museums } from './institutions.js';
 import { collegeContacts, itemContacts, searchUrl } from './contacts.js';
 import { boundsOf, pointInRings, formatAcres } from './geo.js';
 import { loadLeaflet, BASEMAPS } from './leaflet.js';
-import { sites, saveSite, savedFor, STAGES } from './data.js';
+import { sites, savedFor, INTEREST } from './data.js';
+import { recordEditor, interestBadge } from './record-editor.js';
 
-const LOADERS = { college: colleges, tribe: tribes, museum: museums };
+// Museums and planetariums come from the same lookup.
+const LOADERS = { college: colleges, museum: museums };
 
 export function institutionsView(ctx) {
   const ui = (ctx.state.inst ??= {});
-  ui.types ??= { college: true, tribe: true, museum: true };
+  ui.types ??= { college: true, museum: true, planetarium: true };
+  ui.types.planetarium ??= true; delete ui.types.tribe;
   ui.control ??= { Public: true, 'Private nonprofit': true, 'Private for-profit': false };
   ui.fourYearOnly ??= false;
   ui.scienceOnly ??= false;
@@ -24,7 +27,7 @@ export function institutionsView(ctx) {
   let destroyed = false;
   let stateRings = []; let area = { rings: [], label: '' };
   let countyList = []; let muniList = [];
-  let items = { college: [], tribe: [], museum: [] };
+  let items = { college: [], museum: [], planetarium: [] };
   let status = {}; let notes = {}; let collegeSource = '';
   let selected = null; let contacts = null;
   let pickCtl = null; let loadCtl = null; let contactCtl = null;
@@ -53,7 +56,7 @@ export function institutionsView(ctx) {
         ...Object.keys(ui.control).map((k) => check(ui.control, k, k)),
         check(ui, 'fourYearOnly', '4-year only')),
       h('div', { class: 'land-field' }, h('span', { class: 'land-label' }, 'Museums'),
-        check(ui, 'scienceOnly', 'Science, space & planetariums only')),
+        check(ui, 'scienceOnly', 'Science & space museums only')),
       search));
   const results = h('div', { class: 'land-results' });
   side.append(filterBox, results);
@@ -71,7 +74,7 @@ export function institutionsView(ctx) {
     ui.stateFips = fips; ui.countyFips = ''; ui.muniId = ''; ctx.persist();
     countyList = []; muniList = []; stateRings = []; area = { rings: [], label: '' };
     options(countySel, [], 'All counties'); options(muniSel, [], 'All cities & towns');
-    items = { college: [], tribe: [], museum: [] }; selected = null;
+    items = { college: [], museum: [], planetarium: [] }; selected = null;
     draw();
     if (!fips) return;
     try {
@@ -89,10 +92,11 @@ export function institutionsView(ctx) {
     pickCtl?.abort(); pickCtl = new AbortController(); const { signal } = pickCtl;
     ui.countyFips = fips; ui.muniId = ''; countySel.value = fips; ctx.persist();
     muniList = []; options(muniSel, [], 'All cities & towns');
-    if (!fips) { setArea(stateRings, stateByFips(ui.stateFips).name, fit); return; }
+    if (!fips) { setArea(stateRings, stateByFips(ui.stateFips).name, fit); loadAll(); return; }
     try {
       const shape = await src.countyShape(ui.stateFips, fips, signal);
       setArea(shape, `${countyList.find((c) => c.fips === fips)?.name}, ${stateByFips(ui.stateFips).abbr}`, fit);
+      loadAll();
       muniList = await src.municipalities(ui.stateFips, fips, shape, signal);
       options(muniSel, muniList, `All cities & towns (${muniList.length})`, '');
     } catch (err) {
@@ -105,7 +109,7 @@ export function institutionsView(ctx) {
     ui.muniId = id; muniSel.value = id; ctx.persist();
     if (!id) return pickCounty(ui.countyFips, fit);
     const m = muniList.find((x) => x.id === id);
-    try { setArea(await src.municipalityShape(m, signal), `${m.name}, ${stateByFips(ui.stateFips).abbr}`, fit); } catch (err) {
+    try { setArea(await src.municipalityShape(m, signal), `${m.name}, ${stateByFips(ui.stateFips).abbr}`, fit); loadAll(); } catch (err) {
       if (!signal.aborted) { status.error = `Couldn’t load ${m.name}: ${err.message}`; draw(); }
     }
   }
@@ -137,15 +141,20 @@ export function institutionsView(ctx) {
     const st = stateByFips(ui.stateFips);
     if (!st) return;
     loadCtl?.abort(); loadCtl = new AbortController(); const { signal } = loadCtl;
-    const box = boundsOf(stateRings);
+    const areaBox = ui.countyFips && area.rings !== stateRings ? boundsOf(area.rings) : null;
     for (const [type, load] of Object.entries(LOADERS)) {
-      if (!ui.types[type]) { status[type] = ''; continue; }
-      if (type !== 'college' && !box) continue;
+      const wanted = type === 'museum' ? ui.types.museum || ui.types.planetarium : ui.types[type];
+      if (!wanted) { status[type] = ''; continue; }
+      if (type === 'museum' && !areaBox) { status.museum = 'pick'; items.museum = []; items.planetarium = []; continue; }
       status[type] = 'loading';
-      (type === 'college' ? load(st, signal) : load(st, box, signal))
+      (type === 'college' ? load(st, signal) : load(st, areaBox, signal))
         .then((r) => {
           if (signal.aborted || ui.stateFips !== st.fips) return;
-          items[type] = r.items; status[type] = '';
+          if (type === 'museum') {
+            items.museum = r.items.filter((x) => x.type === 'museum');
+            items.planetarium = r.items.filter((x) => x.type === 'planetarium');
+          } else items[type] = r.items;
+          status[type] = '';
           if (type === 'college') collegeSource = r.source;
           notes[type] = r.partial ?? null;
           draw();
@@ -161,9 +170,7 @@ export function institutionsView(ctx) {
     const rings = area.rings.length ? area.rings : stateRings;
     if (!rings.length) return true;
     if (it.type === 'college' && it.countyFips && !ui.muniId && ui.countyFips) return it.countyFips === ui.countyFips;
-    if (it.center && pointInRings(it.center.lat, it.center.lng, rings)) return true;
-    // Tribal lands: any part inside counts.
-    return it.type === 'tribe' && it.rings.some((r) => r.some(([lat, lng]) => pointInRings(lat, lng, rings)));
+    return Boolean(it.center && pointInRings(it.center.lat, it.center.lng, rings));
   }
 
   function visible() {
@@ -179,7 +186,11 @@ export function institutionsView(ctx) {
 
   let drawFrame = 0;
   function draw() { cancelAnimationFrame(drawFrame); drawFrame = requestAnimationFrame(drawNow); }
+  let pendingDraw = false;
+  side.addEventListener('focusout', () => setTimeout(() => { if (pendingDraw) draw(); }, 0));
   function drawNow() {
+    if (side.contains(document.activeElement) && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName) && document.activeElement.type !== 'search') { pendingDraw = true; return; }
+    pendingDraw = false;
     const list = visible();
     renderSide(list);
     if (!map) return;
@@ -187,9 +198,9 @@ export function institutionsView(ctx) {
     for (const it of list) {
       const color = INST_TYPES[it.type].color;
       const on = selected?.id === it.id;
-      const layer = it.type === 'tribe' && it.rings?.length
-        ? L.polygon(it.rings, { color, weight: on ? 3 : 1.5, fillColor: color, fillOpacity: on ? 0.35 : 0.15 })
-        : L.circleMarker([it.center.lat, it.center.lng], { radius: on ? 9 : 6, color: '#fff', weight: 1.5, fillColor: color, fillOpacity: 0.95 });
+      const rec = savedFor(it.id);
+      const ring = rec?.interest ? INTEREST[rec.interest].color : '#fff';
+      const layer = L.circleMarker([it.center.lat, it.center.lng], { radius: on ? 9 : rec?.interest ? 8 : 6, color: ring, weight: rec?.interest ? 3 : 1.5, fillColor: color, fillOpacity: 0.95 });
       layer.bindTooltip(it.name, { sticky: true }).on('click', () => select(it));
       layer.addTo(markers);
     }
@@ -198,8 +209,10 @@ export function institutionsView(ctx) {
   function statusLine(type) {
     const s = status[type];
     if (!s) return null;
-    if (s === 'loading') return h('li', { class: 'muted' }, `Loading ${INST_TYPES[type].label.toLowerCase()}…`);
-    return h('li', { class: 'land-err' }, `Couldn’t load ${INST_TYPES[type].label.toLowerCase()}: ${s.slice(6)} `,
+    const label = type === 'museum' ? 'museums & planetariums' : INST_TYPES[type].label.toLowerCase();
+    if (s === 'loading') return h('li', { class: 'muted' }, `Loading ${label}…`);
+    if (s === 'pick') return h('li', { class: 'muted' }, 'Pick a county (or city/town) to load its museums and planetariums.');
+    return h('li', { class: 'land-err' }, `Couldn’t load ${label}: ${s.slice(6)} `,
       h('button', { type: 'button', class: 'link-btn', onclick: () => loadAll() }, 'Try again'));
   }
 
@@ -207,7 +220,7 @@ export function institutionsView(ctx) {
     if (selected) { results.replaceChildren(detail(selected)); return; }
     if (!ui.stateFips) { results.replaceChildren(h('p', { class: 'muted small' }, 'Pick a state to list its universities and colleges, tribal nations and museums.')); return; }
     const counts = Object.fromEntries(Object.keys(INST_TYPES).map((t) => [t, list.filter((x) => x.type === t).length]));
-    const lines = [...Object.keys(INST_TYPES).map(statusLine), status.error ? h('li', { class: 'land-err' }, status.error) : null,
+    const lines = [...Object.keys(LOADERS).map(statusLine), status.error ? h('li', { class: 'land-err' }, status.error) : null,
       ...Object.entries(notes).filter(([t, n]) => n && ui.types[t]).map(([, n]) => h('li', { class: 'muted' }, n)),
       collegeSource === 'osm' && ui.types.college ? h('li', { class: 'muted' }, 'The college directory was unreachable, so colleges come from OpenStreetMap (less detail).') : null].filter(Boolean);
     const shown = list.slice(0, 300);
@@ -219,7 +232,7 @@ export function institutionsView(ctx) {
         h('button', { type: 'button', onclick: () => select(it, true) },
           h('span', { class: 'land-swatch', style: `--c:${INST_TYPES[it.type].color}` }),
           h('span', { class: 'land-list-main' }, h('strong', {}, it.name), h('span', { class: 'muted small' }, [it.kind, it.city].filter(Boolean).join(' · '))),
-          it.acres ? h('span', { class: 'land-acres' }, formatAcres(it.acres)) : null)))),
+          interestBadge(savedFor(it.id)))))),
       list.length > shown.length ? h('p', { class: 'muted small' }, `Showing the first ${shown.length}; search or narrow the area to see the rest.`) : null,
     ].filter(Boolean));
   }
@@ -241,66 +254,40 @@ export function institutionsView(ctx) {
       .catch((err) => { if (!signal.aborted && selected === it) { contacts = { error: err.message }; draw(); } });
   }
 
+  const baseOf = (it) => ({
+    key: it.id, category: it.type, name: it.name, kind: it.kind, stateAbbr: stateByFips(ui.stateFips)?.abbr ?? '',
+    website: it.website ?? '', phone: it.phone ?? '', address: it.address ?? '', lat: it.center?.lat, lng: it.center?.lng,
+    source: it.source, sourceUrl: it.osm ?? '', contacts: it.head ? [{ name: it.head.name, title: it.head.title, email: '', phone: '' }] : [],
+  });
+
   function detail(it) {
     const row = (label, value) => (value ? h('div', { class: 'land-row' }, h('dt', {}, label), h('dd', {}, value)) : null);
     const link = (href, label) => h('a', { class: 'land-link', href, target: '_blank', rel: 'noopener' }, label);
     const c = contacts && contacts !== 'loading' && !contacts.error ? contacts : null;
-    const website = it.website || c?.website;
-    const phone = it.phone || c?.phone;
-    const leaders = [
-      it.head ? `${it.head.name} (${it.head.title})` : null,
-      ...(c?.leaders ?? []).map((l) => `${l.name}${[c.office, l.since ? `since ${l.since}` : ''].filter(Boolean).length ? ` (${[c.office, l.since ? `since ${l.since}` : ''].filter(Boolean).join(', ')})` : ''}`),
-    ].filter(Boolean);
+    const suggest = contacts === 'loading' ? { loading: true } : contacts?.error ? { error: contacts.error }
+      : { website: c?.website ?? '', phone: c?.phone ?? '', office: c?.office ?? null, leaders: [...(it.head ? [{ name: it.head.name }] : []), ...(c?.leaders ?? []).filter((l) => l.name !== it.head?.name)] };
+    if (it.head && !c?.office) suggest.office = it.head.title;
     const { lat, lng } = it.center ?? {};
     return h('div', { class: 'land-detail' },
       h('button', { type: 'button', class: 'link-btn', onclick: () => { selected = null; draw(); } }, '← Back to list'),
       h('h3', {}, it.name),
       h('p', { class: 'muted small' }, `${it.kind} · from ${it.source}`),
-      saveButton(it, c),
       it.tags?.length ? h('div', { class: 'land-chips' }, ...it.tags.map((t) => h('span', { class: 'land-chip' }, t))) : null,
       h('dl', { class: 'land-dl' },
         row('Size', it.size || (it.acres ? formatAcres(it.acres) : null)),
         row('Run by', it.operator),
-        row('Address', it.address),
-        row('Phone', phone),
-        row('Website', website ? h('a', { class: 'land-a', href: website, target: '_blank', rel: 'noopener' }, website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')) : null),
-        row('Leadership', leaders.length ? h('div', {}, ...leaders.map((l) => h('div', {}, l))) : null),
-        row('Location', it.center ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : null)),
-      contacts === 'loading' ? h('p', { class: 'muted small' }, 'Looking up leadership on Wikidata…') : null,
-      contacts?.error ? h('p', { class: 'land-err small' }, `Couldn’t reach Wikidata: ${contacts.error}`) : null,
-      h('h4', {}, 'Reach out'),
+        row('Address', it.address)),
       h('div', { class: 'land-links' },
-        website ? link(website, 'Website') : null,
         it.type === 'college' ? link(searchUrl(`${it.name} facilities real estate office`), 'Facilities / real estate') : null,
         it.type === 'college' ? link(searchUrl(`${it.name} astronomy physics department`), 'Astronomy / physics dept') : null,
         it.type === 'college' ? link(searchUrl(`${it.name} electrical aerospace engineering department`), 'EE / aerospace dept') : null,
         it.type === 'college' ? link(searchUrl(`${it.name} office of research partnerships`), 'Research partnerships') : null,
-        it.type === 'tribe' ? link('https://www.bia.gov/service/tribal-leaders-directory', 'BIA Tribal Leaders Directory') : null,
-        it.type === 'tribe' ? link(searchUrl(`${it.name} tribal government official website`), 'Tribal government website') : null,
-        it.type === 'tribe' ? link(searchUrl(`${it.name} tribal economic development land office`), 'Economic development / lands office') : null,
-        it.type === 'museum' ? link(searchUrl(`${it.name} director contact`), 'Director / leadership') : null,
-        !leaders.length && it.type !== 'tribe' ? link(searchUrl(`${it.name} president leadership`), 'Find leadership') : null,
-        c?.wikidata ? link(c.wikidata, 'Wikidata') : null),
-      h('h4', {}, 'Look at it'),
-      h('div', { class: 'land-links' },
+        it.type !== 'college' ? link(searchUrl(`${it.name} director contact`), 'Director / leadership') : null,
         it.center ? link(`https://www.google.com/maps/@?api=1&map_action=map&center=${lat},${lng}&zoom=16&basemap=satellite`, 'Google Maps satellite') : null,
-        it.osm ? link(it.osm, 'OpenStreetMap record') : null),
-    );
-  }
-
-  function saveButton(it, c) {
-    const saved = savedFor(it.id);
-    if (saved) {
-      return h('button', { type: 'button', class: 'btn small land-saved', onclick: () => ctx.go('pipeline', { siteId: saved.id }) },
-        `★ Saved · ${STAGES[saved.stage]?.label ?? saved.stage} — open in Pipeline`);
-    }
-    return h('button', { type: 'button', class: 'btn primary small', onclick: () => {
-      const contacts = [
-        it.head ? { name: it.head.name, title: it.head.title, email: '', phone: '' } : null,
-        ...(c?.leaders ?? []).filter((l) => l.name !== it.head?.name).map((l) => ({ name: l.name, title: c.office ?? 'Leader', email: '', phone: '' })),
-      ].filter(Boolean);
-      saveSite({ ...it, category: it.type, owner: it.operator ?? '' }, { contacts, website: it.website || c?.website || '', phone: it.phone || c?.phone || '' });
-    } }, '☆ Save to pipeline');
+        it.osm ? link(it.osm, 'OpenStreetMap record') : null,
+        c?.wikidata ? link(c.wikidata, 'Wikidata') : null),
+      recordEditor(baseOf(it), { suggest }),
+      savedFor(it.id)?.interest === 'yes' ? h('button', { type: 'button', class: 'btn small', onclick: () => ctx.go('pipeline', { siteId: savedFor(it.id).id }) }, 'Open in Pipeline') : null);
   }
 
   // ---- Map --------------------------------------------------------------------------
@@ -317,6 +304,8 @@ export function institutionsView(ctx) {
     resize = new ResizeObserver(() => map.invalidateSize());
     resize.observe(mapEl);
     setArea(area.rings, area.label, true);
+    // Arriving from the Pipeline's "Show on map".
+    if (ctx.state.instFocus) { const f = ctx.state.instFocus; ctx.state.instFocus = null; ctx.persist(); setTimeout(() => map.flyTo([f.lat, f.lng], 15, { duration: 0.6 }), 900); }
   }).catch(() => mapEl.replaceChildren(h('p', { class: 'land-offline' }, 'The map needs an internet connection.')));
   restore();
   const offSites = sites.subscribe(() => draw());

@@ -1,6 +1,7 @@
-// Saved sites and institutions (stage 4): one synced table, land_sites
-// (supabase/migrations/*_land_sites.sql). Contacts and the activity log live on
-// the site itself.
+// Records: every government or institution you've looked at, plus older saved
+// sites. One synced table, land_sites (supabase/migrations/*_land_sites*.sql).
+// Contacts, parcels of interest and the activity log live on the record itself.
+// Only records marked Interested are in the pipeline.
 import { createCollection } from '../../cloud.js';
 import { uid } from '../../storage.js';
 
@@ -15,6 +16,20 @@ export const STAGES = {
   declined: { label: 'Declined', color: '#ef4444' },
 };
 export const OPEN_STAGES = ['found', 'contacted', 'talking'];
+
+export const INTEREST = {
+  '': { label: 'Not reviewed', color: '#94a3b8' },
+  yes: { label: 'Interested', color: '#16a34a' },
+  maybe: { label: 'Maybe', color: '#f59e0b' },
+  no: { label: 'Not interested', color: '#ef4444' },
+};
+
+export const CATEGORY = {
+  state: 'State', county: 'County', municipality: 'City / town', tribe: 'Tribal nation',
+  college: 'College', museum: 'Museum', planetarium: 'Planetarium',
+  parcel: 'Parcel', land: 'Public land', building: 'Public building',
+};
+export const GOVERNMENT = new Set(['state', 'county', 'municipality', 'tribe']);
 
 export const ACTIVITY_TYPES = { email: 'Email', call: 'Call', meeting: 'Meeting', visit: 'Site visit', followup: 'Follow-up', note: 'Note' };
 
@@ -32,6 +47,7 @@ const FIELDS = {
   website: ['website', 'text'], phone: ['phone', 'text'], stage: ['stage', 'text'], stageHistory: ['stage_history', 'list'],
   contacts: ['contacts', 'list'], activity: ['activity', 'list'], nextFollowUp: ['next_follow_up', 'date'],
   declineReason: ['decline_reason', 'text'], notes: ['notes', 'text'], created: ['created_at', 'ts'], updated: ['updated_at', 'ts'],
+  interest: ['interest', 'text'], mapUrl: ['map_url', 'text'], parcels: ['parcels', 'list'], stateAbbr: ['state_abbr', 'text'],
 };
 const entries = Object.entries(FIELDS);
 
@@ -55,12 +71,13 @@ export const formatDate = (date) => (date ? new Date(`${date}T12:00:00`).toLocal
 // ---- Queries ---------------------------------------------------------------------
 
 export const savedFor = (sourceKey) => sites.all().find((s) => s.sourceKey === sourceKey) ?? null;
+export const inPipeline = (s) => s.interest === 'yes';
 
-// Open sites whose follow-up is today or overdue, most overdue first.
+// Pipeline records whose follow-up is today or overdue, most overdue first.
 export function dueFollowUps() {
   const today = todayIso();
   return sites.all()
-    .filter((s) => OPEN_STAGES.includes(s.stage) && s.nextFollowUp && s.nextFollowUp <= today)
+    .filter((s) => inPipeline(s) && OPEN_STAGES.includes(s.stage) && s.nextFollowUp && s.nextFollowUp <= today)
     .sort((a, b) => a.nextFollowUp.localeCompare(b.nextFollowUp));
 }
 
@@ -72,40 +89,35 @@ function put(site, patch) {
   return next;
 }
 
-// Save a map / institution record. `extra` can add contacts, website, phone.
-export function saveSite(record, extra = {}) {
-  const existing = savedFor(record.id);
+// The record for a government / institution, created the first time you
+// change anything about it. `base`: { key, category, name, kind, stateAbbr, … }.
+export function ensureRecord(base) {
+  const existing = savedFor(base.key);
   if (existing) return existing;
   const now = Date.now();
-  const site = {
-    id: uid(),
-    sourceKey: record.id,
-    category: record.category ?? record.type ?? '',
-    name: record.name ?? '',
-    kind: record.kind ?? '',
-    source: record.source ?? '',
-    sourceUrl: record.sourceUrl ?? record.osm ?? '',
-    owner: record.owner ?? record.operator ?? '',
-    ownerType: record.ownerType ?? '',
-    address: record.address ?? '',
-    parcelId: record.parcelId != null ? String(record.parcelId) : '',
-    acres: record.acres != null ? Math.round(record.acres * 100) / 100 : null,
-    lat: record.center?.lat ?? null,
-    lng: record.center?.lng ?? null,
-    website: extra.website ?? record.website ?? '',
-    phone: extra.phone ?? record.phone ?? '',
-    stage: 'found',
-    stageHistory: [{ stage: 'found', at: now }],
-    contacts: extra.contacts ?? [],
-    activity: [{ at: now, type: 'note', text: 'Saved from Land Search' }],
-    nextFollowUp: '',
-    declineReason: '',
-    notes: '',
-    created: now,
-    updated: now,
+  const record = {
+    id: uid(), sourceKey: base.key, category: base.category ?? '', name: base.name ?? '', kind: base.kind ?? '',
+    source: base.source ?? '', sourceUrl: base.sourceUrl ?? '', owner: '', ownerType: '', address: base.address ?? '', parcelId: '',
+    acres: base.acres != null ? Math.round(base.acres * 100) / 100 : null, lat: base.lat ?? null, lng: base.lng ?? null,
+    website: base.website ?? '', phone: base.phone ?? '', stage: 'found', stageHistory: [], contacts: base.contacts ?? [],
+    activity: [], nextFollowUp: '', declineReason: '', notes: '', interest: '', mapUrl: '', parcels: [],
+    stateAbbr: base.stateAbbr ?? '', created: now, updated: now,
   };
-  sites.upsert(site);
-  return site;
+  sites.upsert(record);
+  return record;
+}
+
+// Change a record, creating it first if needed.
+export const editRecord = (base, patch) => put(sites.get(ensureRecord(base).id), patch);
+
+export function setInterest(base, interest) {
+  const record = sites.get(ensureRecord(base).id);
+  if (record.interest === interest) return record;
+  const now = Date.now();
+  const patch = { interest, activity: [...record.activity, { at: now, type: 'stage', text: `Marked ${INTEREST[interest]?.label ?? 'not reviewed'}` }] };
+  // Becoming interested puts it in the pipeline at "Found".
+  if (interest === 'yes' && !record.stageHistory.length) patch.stageHistory = [{ stage: 'found', at: now }];
+  return put(record, patch);
 }
 
 export function setStage(site, stage) {
@@ -127,7 +139,9 @@ export function setStage(site, stage) {
 export function logActivity(site, type, text) {
   const now = Date.now();
   let next = site;
-  if (type !== 'note' && site.stage === 'found') next = setStage(site, 'contacted');
+  // Reaching out to something means you're interested in it.
+  if (type !== 'note' && next.interest !== 'yes') next = put(next, { interest: 'yes', stageHistory: next.stageHistory.length ? next.stageHistory : [{ stage: 'found', at: now }] });
+  if (type !== 'note' && next.stage === 'found') next = setStage(next, 'contacted');
   return put(next, {
     activity: [...next.activity, { at: now, type, text: text.trim() }],
     nextFollowUp: type !== 'note' && OPEN_STAGES.includes(next.stage) ? addDays(FOLLOW_UP_DAYS) : next.nextFollowUp,
