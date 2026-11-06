@@ -25,11 +25,11 @@ export const INTEREST = {
 };
 
 export const CATEGORY = {
-  state: 'State', county: 'County', municipality: 'City / town', tribe: 'Tribal nation',
+  state: 'State', county: 'County', municipality: 'City / town', tribe: 'Tribal nation', school: 'School district',
   college: 'College', museum: 'Museum', planetarium: 'Planetarium',
   parcel: 'Parcel', land: 'Public land', building: 'Public building',
 };
-export const GOVERNMENT = new Set(['state', 'county', 'municipality', 'tribe']);
+export const GOVERNMENT = new Set(['state', 'county', 'municipality', 'tribe', 'school']);
 
 export const ACTIVITY_TYPES = { email: 'Email', call: 'Call', meeting: 'Meeting', visit: 'Site visit', followup: 'Follow-up', note: 'Note' };
 
