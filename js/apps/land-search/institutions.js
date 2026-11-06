@@ -3,7 +3,7 @@
 //             Education Data API (falls back to OpenStreetMap if it's unreachable)
 //   tribes    reservations and trust lands from Census TIGERweb (AIANNH), for the Governments tab
 //   museums   museums and planetariums from OpenStreetMap + Wikidata, per county / town
-import { attr, getJson, queryLayer, envelope, overpass } from './sources.js';
+import { attr, getJson, queryLayer, envelope, overpass, newestYear, allPages } from './sources.js';
 import { fromEsriRings, centerOf } from './geo.js';
 
 const URBAN = 'https://educationdata.urban.org/api/v1/college-university/ipeds/directory';
@@ -34,20 +34,9 @@ const cached = (key, fn, signal) => {
 
 // ---- Colleges ---------------------------------------------------------------
 
-async function urbanColleges(stateFips, signal) {
-  // Newest year first; the directory lags a year or two behind.
-  const thisYear = new Date().getFullYear();
-  for (let year = thisYear - 1; year >= thisYear - 5; year--) {
-    let url = `${URBAN}/${year}/?fips=${Number(stateFips)}`;
-    const rows = [];
-    while (url) {
-      const page = await getJson(url, {}, signal);
-      rows.push(...(page.results ?? []));
-      url = page.next ? page.next.replace(/^http:/, 'https:') : null;
-    }
-    if (rows.length) return { year, rows };
-  }
-  return { year: null, rows: [] };
+async function urbanColleges(stateFips) {
+  // The directory lags a year or two behind; use the newest year with data.
+  return newestYear((y) => allPages(`${URBAN}/${y}/?fips=${Number(stateFips)}`));
 }
 
 function fromUrban(r, year) {

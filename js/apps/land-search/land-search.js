@@ -4,6 +4,7 @@
 // Self-contained: this folder + supabase/migrations/*_land_sites*.sql.
 //
 //   governments-view.js   Governments tab: state → county → city/town/township, tribal nations
+//   schools-view.js       School districts tab (+ schools.js: Census list + NCES directory)
 //   institutions-view.js  Institutions tab: universities & colleges, museums, planetariums on a map
 //   pipeline-view.js      Pipeline tab: everything marked Interested, and each record's page
 //   coverage-view.js      Coverage tab: what's connected + Check connections (diagnostics.js)
@@ -19,6 +20,7 @@ import { onIntent } from '../../intents.js';
 import { sites, dueFollowUps, completeFollowUp, daysLate } from './data.js';
 import { pipelineView } from './pipeline-view.js';
 import { governmentsView } from './governments-view.js';
+import { schoolsView } from './schools-view.js';
 import { coverageView } from './coverage-view.js';
 import { institutionsView } from './institutions-view.js';
 
@@ -30,6 +32,7 @@ sites.subscribe(() => { clearTimeout(badgeTimer); badgeTimer = setTimeout(() => 
 
 const TABS = {
   governments: { label: 'Governments', view: governmentsView },
+  schools: { label: 'School districts', view: schoolsView },
   institutions: { label: 'Institutions', view: institutionsView },
   pipeline: { label: 'Pipeline', view: pipelineView },
   coverage: { label: 'Coverage', view: (ctx) => ({ el: coverageView(ctx) }) },

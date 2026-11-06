@@ -142,3 +142,30 @@ export async function overpass(query, signal) {
 }
 
 const bboxStr = ({ s, w, n, e }) => `${s.toFixed(5)},${w.toFixed(5)},${n.toFixed(5)},${e.toFixed(5)}`;
+
+// The newest year a yearly dataset has data for. Recent years are asked at the
+// same time (an empty or slow year can't hold the rest up, and one failing year
+// isn't fatal); fetchYear(year) resolves to the year's rows ([] when empty).
+export async function newestYear(fetchYear, years = 4) {
+  const now = new Date().getFullYear();
+  const list = Array.from({ length: years }, (_, i) => now - 1 - i);
+  const results = await Promise.allSettled(list.map((y) => fetchYear(y)));
+  for (let i = 0; i < list.length; i++) {
+    if (results[i].status === 'fulfilled' && results[i].value.length) return { year: list[i], rows: results[i].value };
+  }
+  const failed = results.find((r) => r.status === 'rejected');
+  if (failed && results.every((r) => r.status === 'rejected' || !r.value.length)) throw failed.reason;
+  return { year: null, rows: [] };
+}
+
+// Every page of an Education Data API (Urban Institute) result.
+export async function allPages(url) {
+  const rows = [];
+  while (url) {
+    const page = await getJson(url);
+    rows.push(...(page.results ?? []));
+    url = page.next ? page.next.replace(/^http:/, 'https:') : null;
+  }
+  return rows;
+}
+
