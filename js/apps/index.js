@@ -18,12 +18,13 @@ import webApps from './web-apps/web-apps.js';
 import settings from './settings/settings.js';
 import astraRetrieval from './astra-retrieval/astra-retrieval.js';
 import crewOrchard from './crew-orchard/crew-orchard.js';
+import crewOutreach from './crew-outreach/crew-outreach.js';
 import loiTracker from './loi-tracker/loi-tracker.js';
 import investorTracker from './investor-tracker/investor-tracker.js';
 import landSearch from './land-search/land-search.js';
 import rolodex from './rolodex/rolodex.js';
 
-const APPS = [notes, tasks, rolodex, calculator, clock, settings, astraRetrieval, crewOrchard, loiTracker, investorTracker, landSearch, webApps];
+const APPS = [notes, tasks, rolodex, calculator, clock, settings, astraRetrieval, crewOrchard, crewOutreach, loiTracker, investorTracker, landSearch, webApps];
 
 const withDefaults = (app) => ('requiresSignIn' in app ? app : { ...app, requiresSignIn: true });
 

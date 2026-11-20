@@ -7,5 +7,5 @@ export default createFolder({
   id: 'crew-orchard',
   name: 'Crew Orchard',
   image: new URL('./crew-orchard.svg', import.meta.url).href,
-  contains: [],
+  contains: ['crew-outreach'],
 });
