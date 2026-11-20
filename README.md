@@ -79,6 +79,7 @@ js/apps/calculator/           calculator.js, calculator.css   (no data)
 js/apps/clock/                clock.js, clock.css             (no data)
 js/apps/settings/             settings.js, settings.css
 js/apps/astra-retrieval/      Astra Retrieval folder (logo + list of apps inside it)
+js/apps/crew-orchard/         Crew Orchard folder (logo from creworchard.com + list of apps inside it; empty for now)
 js/apps/loi-tracker/          the LOIs app (inside Astra Retrieval): Astra Retrieval business development
                                 config.js (products, use cases, stages, reminder days), data.js, form.js,
                                 editors.js, views/  ⇄ supabase/migrations/*_lois.sql, *_business_development.sql
