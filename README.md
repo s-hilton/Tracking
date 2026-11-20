@@ -21,6 +21,7 @@ A personal dashboard that works like a desktop: tap an icon and the app opens in
 | LOIs *(Astra Retrieval folder)* | Astra Retrieval business development: companies, pipeline, LOIs, follow-ups, analytics |
 | Land Search *(Astra Retrieval folder)* | Go through every government in the country for ground-station sites: **Governments** (state → county → city/town/township drop-downs from the Census Bureau, plus tribal nations); **School districts** (every district in each state from the Census Bureau, with phone, office, enrollment and school counts from the NCES directory); each one gets its map/GIS data link, website, phone, current leadership (Wikidata), contacts, parcels of interest and notes, marked Interested / Maybe / Not interested; **Institutions** on a map (universities & colleges from IPEDS, museums and planetariums from OpenStreetMap + Wikidata) with the same interest tracking; a **Pipeline** of everything marked Interested (found → contacted → talking → agreement / declined) with an activity log and follow-ups a week out that land on the sticky note; **Coverage** notes what's connected and has a connection check |
 | Investors *(Astra Retrieval folder)* | Fundraising tracker: rounds, investors with contact info and people, stages (to contact → contacted → following up → meeting → due diligence → term sheet → committed / passed), why they passed, "keep in mind" firms carried into the next round, an investor-update list, Paste from spreadsheet (websites, emails, contact links) and Export to Excel |
+| Outreach *(Crew Orchard folder)* | Crew Orchard customer outreach: everyone you reach out to with name, position, company, industry, company size, location, email, phone, LinkedIn, website and how you found them; a searchable **Customers** list (filter by stage or industry), a **Pipeline** board (to contact → contacted → following up → replied → meeting / demo → trial / pilot → customer / not interested), a timeline per person ("Log contact"), follow-ups that land on the sticky note, and Export CSV |
 
 **Web apps:** in Settings → Web apps you can add any website. It gets the site's own icon, and it opens inside a window. Some sites (Google, Facebook, banks, …) refuse to be shown inside other pages. For those, use the **Open in tab** button in the window's toolbar.
 
@@ -79,7 +80,10 @@ js/apps/calculator/           calculator.js, calculator.css   (no data)
 js/apps/clock/                clock.js, clock.css             (no data)
 js/apps/settings/             settings.js, settings.css
 js/apps/astra-retrieval/      Astra Retrieval folder (logo + list of apps inside it)
-js/apps/crew-orchard/         Crew Orchard folder (logo from creworchard.com + list of apps inside it; empty for now)
+js/apps/crew-orchard/         Crew Orchard folder (logo from creworchard.com + list of apps inside it)
+js/apps/crew-outreach/        the Outreach app (inside Crew Orchard): customer outreach. config.js (stages, industries, sources),
+                                data.js, views.js (customers list, pipeline, customer page, forms, CSV export)
+                                ⇄ supabase/migrations/*_crew_customers.sql
 js/apps/loi-tracker/          the LOIs app (inside Astra Retrieval): Astra Retrieval business development
                                 config.js (products, use cases, stages, reminder days), data.js, form.js,
                                 editors.js, views/  ⇄ supabase/migrations/*_lois.sql, *_business_development.sql
@@ -180,7 +184,7 @@ return () => offIntent();
 ```
 
 Keep `todos()` fast and only include things that need doing now (due today or overdue), not everything in the app.
-When the data changes, fire `window.dispatchEvent(new Event('badges-changed'))` (e.g. in a `store.subscribe`) so the note and icon badges refresh. The Rolodex, LOIs, Investors, Land Search and Tasks apps are working examples.
+When the data changes, fire `window.dispatchEvent(new Event('badges-changed'))` (e.g. in a `store.subscribe`) so the note and icon badges refresh. The Rolodex, LOIs, Investors, Land Search, Outreach and Tasks apps are working examples.
 
 **Badges and reminders:** an app can add `badge: () => number` (a red count on its icon; folders show the total of their apps) and `reminder: () => 'message' | null` (shown as a pop-up once a day when the dashboard opens). The LOIs app uses both for companies needing a follow-up.
 
